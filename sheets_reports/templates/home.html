@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Report IA — Tus tableros</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          ink: '#14171F',
+          paper: '#F7F8F4',
+          line: '#E3E5DE',
+          moss: { 50:'#EAF3EC', 100:'#CFE6D6', 300:'#6FAE86', 500:'#1F8A5F', 600:'#166B49', 700:'#0F5138' },
+          clay: { 50:'#FBF3EA', 300:'#E0AF77', 500:'#B5793D', 600:'#8F5E2E' },
+        },
+        fontFamily: {
+          display: ['"Space Grotesk"', 'sans-serif'],
+          sans: ['Inter', 'sans-serif'],
+          mono: ['"JetBrains Mono"', 'monospace'],
+        }
+      }
+    }
+  }
+</script>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+
+<style>
+  body { font-family: 'Inter', sans-serif; }
+  .font-display { font-family: 'Space Grotesk', sans-serif; }
+  .font-mono { font-family: 'JetBrains Mono', monospace; }
+  [x-cloak] { display: none !important; }
+</style>
+</head>
+<body class="bg-paper text-ink antialiased min-h-screen">
+
+<div x-data="homeApp()">
+
+  <!-- ============================================================ -->
+  <!-- HEADER                                                        -->
+  <!-- ============================================================ -->
+  <header class="border-b border-line bg-white">
+    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="w-7 h-7 rounded-md bg-moss-500 flex items-center justify-center text-white text-sm font-display font-bold">R</span>
+        <span class="font-display font-semibold text-lg tracking-tight">Report IA</span>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button class="text-ink/40 hover:text-ink transition relative" aria-label="Notificaciones">
+          <i class="ti ti-bell text-lg" aria-hidden="true"></i>
+        </button>
+        <div class="w-8 h-8 rounded-full bg-moss-50 border border-moss-100 flex items-center justify-center text-xs font-medium text-moss-700">
+          RA
+        </div>
+        <button @click="showNewDashboardModal = true"
+                class="bg-moss-500 hover:bg-moss-600 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-2 transition">
+          <i class="ti ti-plus text-base" aria-hidden="true"></i>Nuevo tablero
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============================================================ -->
+  <!-- CONTENIDO                                                     -->
+  <!-- ============================================================ -->
+  <main class="max-w-7xl mx-auto px-6 py-10">
+
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h1 class="font-display text-2xl font-semibold">Mis tableros</h1>
+        <p class="text-sm text-ink/60 mt-1">Reportes conectados a tus hojas de cálculo de Google Sheets.</p>
+      </div>
+
+      <div class="relative hidden sm:block">
+        <i class="ti ti-search text-ink/30 absolute left-3 top-1/2 -translate-y-1/2 text-base" aria-hidden="true"></i>
+        <input x-model="search" type="text" placeholder="Buscar tablero..."
+               class="w-56 border border-line rounded-lg pl-9 pr-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-moss-300 focus:border-moss-500">
+      </div>
+    </div>
+
+    <!-- Grid de tableros -->
+    <div x-show="filteredDashboards.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+
+      <template x-for="d in filteredDashboards" :key="d.id">
+        <div class="bg-white border border-line rounded-xl p-5 hover:border-moss-300 hover:shadow-sm transition group relative">
+          <a :href="'/tableros/' + d.id + '/'" class="block">
+            <div class="flex items-start justify-between mb-4">
+              <div class="w-9 h-9 rounded-lg bg-moss-50 flex items-center justify-center">
+                <i class="ti ti-layout-dashboard text-moss-600 text-lg" aria-hidden="true"></i>
+              </div>
+              <button @click.prevent.stop="openMenu(d.id)" class="text-ink/30 hover:text-ink p-1 -mr-1 -mt-1" aria-label="Más opciones">
+                <i class="ti ti-dots text-base" aria-hidden="true"></i>
+              </button>
+            </div>
+            <h3 class="font-display font-semibold text-base mb-1 group-hover:text-moss-600 truncate" x-text="d.name"></h3>
+            <p class="text-xs text-ink/50 mb-3" x-text="d.cardCount + ' tarjetas · editado ' + d.updated"></p>
+            <span class="inline-flex items-center gap-1.5 text-[11px] font-mono text-ink/50 bg-paper px-2 py-1 rounded border border-line">
+              <i class="ti ti-table text-sm" aria-hidden="true"></i><span x-text="d.sheetName"></span>
+            </span>
+          </a>
+
+          <!-- Menú contextual -->
+          <div x-show="openMenuId === d.id" @click.outside="openMenuId = null" x-cloak
+               class="absolute right-4 top-12 w-40 bg-white border border-line rounded-lg shadow-lg py-1 z-10">
+            <a :href="'/tableros/' + d.id + '/'" class="flex items-center gap-2 px-3 py-2 text-sm text-ink/70 hover:bg-paper">
+              <i class="ti ti-pencil text-sm" aria-hidden="true"></i>Editar
+            </a>
+            <button class="w-full flex items-center gap-2 px-3 py-2 text-sm text-ink/70 hover:bg-paper text-left">
+              <i class="ti ti-copy text-sm" aria-hidden="true"></i>Duplicar
+            </button>
+            <button @click="deleteDashboard(d.id)" class="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 text-left">
+              <i class="ti ti-trash text-sm" aria-hidden="true"></i>Eliminar
+            </button>
+          </div>
+        </div>
+      </template>
+
+      <button @click="showNewDashboardModal = true"
+              class="border border-dashed border-line rounded-xl p-5 flex flex-col items-center justify-center gap-2 text-ink/40 hover:text-moss-600 hover:border-moss-300 transition min-h-[148px]">
+        <i class="ti ti-plus text-2xl" aria-hidden="true"></i>
+        <span class="text-sm font-medium">Nuevo tablero</span>
+      </button>
+
+    </div>
+
+    <!-- Estado vacío (sin tableros aún) -->
+    <div x-show="dashboards.length === 0" x-cloak class="text-center py-20">
+      <div class="w-14 h-14 rounded-2xl bg-moss-50 flex items-center justify-center mx-auto mb-4">
+        <i class="ti ti-layout-dashboard text-moss-600 text-2xl" aria-hidden="true"></i>
+      </div>
+      <h2 class="font-display text-lg font-semibold mb-1">Crea tu primer tablero</h2>
+      <p class="text-sm text-ink/50 mb-5 max-w-xs mx-auto">Conecta una hoja de Google Sheets y arma tu primer reporte en minutos.</p>
+      <button @click="showNewDashboardModal = true"
+              class="bg-moss-500 hover:bg-moss-600 text-white text-sm font-medium px-4 py-2.5 rounded-lg inline-flex items-center gap-2 transition">
+        <i class="ti ti-plus text-base" aria-hidden="true"></i>Nuevo tablero
+      </button>
+    </div>
+
+    <!-- Sin resultados de búsqueda -->
+    <div x-show="dashboards.length > 0 && filteredDashboards.length === 0" x-cloak class="text-center py-20">
+      <p class="text-sm text-ink/50">No hay tableros que coincidan con <span class="font-medium text-ink" x-text="'\u201c' + search + '\u201d'"></span>.</p>
+    </div>
+
+  </main>
+
+  <!-- ============================================================ -->
+  <!-- MODAL: NUEVO TABLERO                                          -->
+  <!-- ============================================================ -->
+  <div x-show="showNewDashboardModal" x-cloak
+       class="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-40"
+       style="display:none;">
+    <div @click.outside="showNewDashboardModal = false"
+         x-show="showNewDashboardModal" x-transition
+         class="bg-white rounded-2xl w-full max-w-md border border-line shadow-xl">
+
+      <div class="px-6 pt-6 pb-4 border-b border-line">
+        <h2 class="font-display text-lg font-semibold">Nuevo tablero</h2>
+        <p class="text-sm text-ink/50 mt-0.5">Conecta una hoja de cálculo para empezar.</p>
+      </div>
+
+      <div class="px-6 py-5 space-y-5">
+
+        <div>
+          <label class="block text-xs font-medium text-ink/60 mb-1.5">Nombre del tablero</label>
+          <input x-model="newDashboardName" type="text" placeholder="Ej. Ventas región norte"
+                 class="w-full border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-moss-300 focus:border-moss-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-ink/60 mb-1.5">Fuente de datos</label>
+          <div class="border-2 border-moss-500 bg-moss-50 rounded-lg p-3 flex items-center gap-3">
+            <div class="w-8 h-8 rounded bg-white border border-moss-300 flex items-center justify-center">
+              <i class="ti ti-table text-moss-600" aria-hidden="true"></i>
+            </div>
+            <div class="flex-1">
+              <p class="text-sm font-medium text-ink">Google Sheets</p>
+              <p class="text-[11px] text-ink/50">Única fuente disponible por ahora</p>
+            </div>
+            <i class="ti ti-circle-check-filled text-moss-500 text-lg" aria-hidden="true"></i>
+          </div>
+        </div>
+
+        <div>
+          <button @click="sheetConnected = true"
+                  x-show="!sheetConnected"
+                  class="w-full border border-line rounded-lg px-3 py-2.5 text-sm font-medium text-ink/70 hover:bg-paper flex items-center justify-center gap-2 transition">
+            <i class="ti ti-brand-google-drive text-base" aria-hidden="true"></i>
+            Seleccionar hoja de cálculo
+          </button>
+          <div x-show="sheetConnected" x-cloak
+               class="flex items-center justify-between border border-line rounded-lg px-3 py-2.5 bg-paper">
+            <span class="inline-flex items-center gap-2 text-xs font-mono text-ink/70">
+              <i class="ti ti-table text-moss-600" aria-hidden="true"></i>Presupuesto_2026.xlsx
+            </span>
+            <button @click="sheetConnected = false" class="text-ink/40 hover:text-ink text-xs">Cambiar</button>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="px-6 py-4 border-t border-line flex justify-end gap-2">
+        <button @click="showNewDashboardModal = false; resetNewDashboardForm()"
+                class="px-4 py-2 text-sm font-medium text-ink/60 hover:bg-paper rounded-lg transition">Cancelar</button>
+        <button @click="createDashboard()"
+                :disabled="!newDashboardName || !sheetConnected"
+                :class="(!newDashboardName || !sheetConnected) ? 'opacity-40 cursor-not-allowed' : 'hover:bg-moss-600'"
+                class="px-4 py-2 text-sm font-medium text-white bg-moss-500 rounded-lg transition">
+          Crear tablero
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function homeApp() {
+    return {
+      search: '',
+      showNewDashboardModal: false,
+      sheetConnected: false,
+      newDashboardName: '',
+      openMenuId: null,
+
+      dashboards: [
+        { id: 1, name: 'Ventas región norte', cardCount: 6, updated: 'hace 2 días', sheetName: 'Ventas_Norte.xlsx' },
+        { id: 2, name: 'Presupuesto anual', cardCount: 4, updated: 'hace 1 semana', sheetName: 'Presupuesto_2026.xlsx' },
+        { id: 3, name: 'Clima laboral', cardCount: 9, updated: 'hace 3 semanas', sheetName: 'Encuesta_Clima.xlsx' },
+      ],
+
+      get filteredDashboards() {
+        if (!this.search.trim()) return this.dashboards;
+        const q = this.search.toLowerCase();
+        return this.dashboards.filter(d => d.name.toLowerCase().includes(q));
+      },
+
+      openMenu(id) {
+        this.openMenuId = this.openMenuId === id ? null : id;
+      },
+
+      deleteDashboard(id) {
+        this.dashboards = this.dashboards.filter(d => d.id !== id);
+        this.openMenuId = null;
+      },
+
+      resetNewDashboardForm() {
+        this.newDashboardName = '';
+        this.sheetConnected = false;
+      },
+
+      createDashboard() {
+        if (!this.newDashboardName || !this.sheetConnected) return;
+        const dash = {
+          id: Date.now(),
+          name: this.newDashboardName,
+          sheetName: 'Presupuesto_2026.xlsx',
+          cardCount: 0,
+          updated: 'ahora'
+        };
+        this.dashboards.unshift(dash);
+        this.showNewDashboardModal = false;
+        this.resetNewDashboardForm();
+        // En producción: redirigir al lienzo del tablero recién creado
+        // window.location.href = '/tableros/' + dash.id + '/';
+      }
+    }
+  }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+</body>
+</html>
