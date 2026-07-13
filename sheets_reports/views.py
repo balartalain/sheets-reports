@@ -116,6 +116,8 @@ def widget_functions(request):
     modules = []
 
     for filepath in sorted(views_dir.glob("views_*.py")):
+        if filepath.stem == "views_dashboard":
+            continue
         module_name = f"sheets_reports.{filepath.stem}"
         module = importlib.import_module(module_name)
 
