@@ -2,6 +2,13 @@
 
 {% block title %}Report IA — Editor de tablero{% endblock %}
 
+{% block header_actions %}
+<button onclick="window.location.href='/'" class="text-sm font-medium text-ink/50 hover:text-moss-600 transition cursor-pointer flex items-center gap-1.5">
+  <i class="ti ti-logout" aria-hidden="true"></i>
+  Salir del editor
+</button>
+{% endblock %}
+
 {% block content %}
 
 <style>

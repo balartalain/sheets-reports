@@ -49,6 +49,7 @@
     </div>
 
     <div class="flex items-center gap-3">
+      {% block header_actions %}{% endblock %}
       <button class="text-ink/40 hover:text-ink transition relative" aria-label="Notificaciones">
         <i class="ti ti-bell text-lg" aria-hidden="true"></i>
       </button>
