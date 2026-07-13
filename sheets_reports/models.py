@@ -12,6 +12,10 @@ class Dashboard(models.Model):
         max_length=255,
         help_text="Título descriptivo del tablero.",
     )
+    view_module = models.CharField(
+        max_length=255,
+        help_text="Nombre del módulo Python que contiene las vistas de los widgets (ej. 'ventas_norte' → views_ventas_norte.py).",
+    )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,

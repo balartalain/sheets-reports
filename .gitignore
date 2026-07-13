@@ -30,3 +30,4 @@ media/
 
 # Environment variables
 .env
+google_credentials.json
