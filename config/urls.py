@@ -22,4 +22,5 @@ from sheets_reports import views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.home, name='home'),
+    path('tableros/<int:board_id>/', views.board_editor, name='board_editor'),
 ]

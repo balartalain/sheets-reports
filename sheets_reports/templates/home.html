@@ -1,76 +1,11 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Report IA — Tus tableros</title>
+{% extends "base.html" %}
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+{% block title %}Report IA — Tus tableros{% endblock %}
 
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        colors: {
-          ink: '#14171F',
-          paper: '#F7F8F4',
-          line: '#E3E5DE',
-          moss: { 50:'#EAF3EC', 100:'#CFE6D6', 300:'#6FAE86', 500:'#1F8A5F', 600:'#166B49', 700:'#0F5138' },
-          clay: { 50:'#FBF3EA', 300:'#E0AF77', 500:'#B5793D', 600:'#8F5E2E' },
-        },
-        fontFamily: {
-          display: ['"Space Grotesk"', 'sans-serif'],
-          sans: ['Inter', 'sans-serif'],
-          mono: ['"JetBrains Mono"', 'monospace'],
-        }
-      }
-    }
-  }
-</script>
-
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
-
-<style>
-  body { font-family: 'Inter', sans-serif; }
-  .font-display { font-family: 'Space Grotesk', sans-serif; }
-  .font-mono { font-family: 'JetBrains Mono', monospace; }
-  [x-cloak] { display: none !important; }
-</style>
-</head>
-<body class="bg-paper text-ink antialiased min-h-screen">
+{% block content %}
 
 <div x-data="homeApp()">
 
-  <!-- ============================================================ -->
-  <!-- HEADER                                                        -->
-  <!-- ============================================================ -->
-  <header class="border-b border-line bg-white">
-    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <span class="w-7 h-7 rounded-md bg-moss-500 flex items-center justify-center text-white text-sm font-display font-bold">R</span>
-        <span class="font-display font-semibold text-lg tracking-tight">Report IA</span>
-      </div>
-
-      <div class="flex items-center gap-3">
-        <button class="text-ink/40 hover:text-ink transition relative" aria-label="Notificaciones">
-          <i class="ti ti-bell text-lg" aria-hidden="true"></i>
-        </button>
-        <div class="w-8 h-8 rounded-full bg-moss-50 border border-moss-100 flex items-center justify-center text-xs font-medium text-moss-700">
-          RA
-        </div>
-        <button @click="showNewDashboardModal = true"
-                class="bg-moss-500 hover:bg-moss-600 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-2 transition">
-          <i class="ti ti-plus text-base" aria-hidden="true"></i>Nuevo tablero
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <!-- ============================================================ -->
-  <!-- CONTENIDO                                                     -->
-  <!-- ============================================================ -->
   <main class="max-w-7xl mx-auto px-6 py-10">
 
     <div class="flex items-center justify-between mb-8">
@@ -86,7 +21,6 @@
       </div>
     </div>
 
-    <!-- Grid de tableros -->
     <div x-show="filteredDashboards.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 
       <template x-for="d in filteredDashboards" :key="d.id">
@@ -107,7 +41,6 @@
             </span>
           </a>
 
-          <!-- Menú contextual -->
           <div x-show="openMenuId === d.id" @click.outside="openMenuId = null" x-cloak
                class="absolute right-4 top-12 w-40 bg-white border border-line rounded-lg shadow-lg py-1 z-10">
             <a :href="'/tableros/' + d.id + '/'" class="flex items-center gap-2 px-3 py-2 text-sm text-ink/70 hover:bg-paper">
@@ -131,7 +64,6 @@
 
     </div>
 
-    <!-- Estado vacío (sin tableros aún) -->
     <div x-show="dashboards.length === 0" x-cloak class="text-center py-20">
       <div class="w-14 h-14 rounded-2xl bg-moss-50 flex items-center justify-center mx-auto mb-4">
         <i class="ti ti-layout-dashboard text-moss-600 text-2xl" aria-hidden="true"></i>
@@ -144,16 +76,12 @@
       </button>
     </div>
 
-    <!-- Sin resultados de búsqueda -->
     <div x-show="dashboards.length > 0 && filteredDashboards.length === 0" x-cloak class="text-center py-20">
       <p class="text-sm text-ink/50">No hay tableros que coincidan con <span class="font-medium text-ink" x-text="'\u201c' + search + '\u201d'"></span>.</p>
     </div>
 
   </main>
 
-  <!-- ============================================================ -->
-  <!-- MODAL: NUEVO TABLERO                                          -->
-  <!-- ============================================================ -->
   <div x-show="showNewDashboardModal" x-cloak
        class="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-40"
        style="display:none;">
@@ -268,12 +196,9 @@
         this.dashboards.unshift(dash);
         this.showNewDashboardModal = false;
         this.resetNewDashboardForm();
-        // En producción: redirigir al lienzo del tablero recién creado
-        // window.location.href = '/tableros/' + dash.id + '/';
       }
     }
   }
 </script>
-<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-</body>
-</html>
+
+{% endblock %}

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Report IA{% endblock %}</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          ink: '#14171F',
+          paper: '#F7F8F4',
+          line: '#E3E5DE',
+          moss: { 50:'#EAF3EC', 100:'#CFE6D6', 300:'#6FAE86', 500:'#1F8A5F', 600:'#166B49', 700:'#0F5138' },
+          clay: { 50:'#FBF3EA', 300:'#E0AF77', 500:'#B5793D', 600:'#8F5E2E' },
+        },
+        fontFamily: {
+          display: ['"Space Grotesk"', 'sans-serif'],
+          sans: ['Inter', 'sans-serif'],
+          mono: ['"JetBrains Mono"', 'monospace'],
+        }
+      }
+    }
+  }
+</script>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+
+<style>
+  body { font-family: 'Inter', sans-serif; }
+  .font-display { font-family: 'Space Grotesk', sans-serif; }
+  .font-mono { font-family: 'JetBrains Mono', monospace; }
+  [x-cloak] { display: none !important; }
+</style>
+</head>
+<body class="bg-paper text-ink antialiased min-h-screen">
+
+<header class="border-b border-line bg-white">
+  <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <span class="w-7 h-7 rounded-md bg-moss-500 flex items-center justify-center text-white text-sm font-display font-bold">R</span>
+      <span class="font-display font-semibold text-lg tracking-tight">Report IA</span>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <button class="text-ink/40 hover:text-ink transition relative" aria-label="Notificaciones">
+        <i class="ti ti-bell text-lg" aria-hidden="true"></i>
+      </button>
+      <div class="w-8 h-8 rounded-full bg-moss-50 border border-moss-100 flex items-center justify-center text-xs font-medium text-moss-700">
+        RA
+      </div>
+    </div>
+  </div>
+</header>
+
+{% block content %}{% endblock %}
+
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+</body>
+</html>
