@@ -313,12 +313,6 @@
           const titleEl = el.querySelector('.title-display');
           if (titleEl) titleEl.textContent = w.title;
 
-          const fnBadge = el.querySelector('.function-path-display');
-          if (fnBadge) {
-            fnBadge.textContent = w.functionPath || '';
-            fnBadge.classList.toggle('hidden', !w.functionPath);
-          }
-
           Array.from(el.classList).filter(c => c.startsWith('col-start-')).forEach(c => el.classList.remove(c));
           el.classList.remove('col-span-3', 'col-span-4', 'col-span-6', 'col-span-8', 'col-span-12');
           el.classList.add(w.width);
@@ -437,7 +431,6 @@
       <div class="drag-handle cursor-move text-ink/30 hover:text-ink/60 absolute left-1 top-0 bottom-0 flex items-center opacity-0 group-hover:opacity-100 transition-opacity z-20 text-[1rem] leading-none">⣿</div>
       <div class="flex justify-between items-center border-b border-line pb-2 mb-2 select-none">
         <span class="title-display text-[10px] font-bold uppercase tracking-wider text-ink/40">${widget.title}</span>
-        <span class="function-path-display text-[9px] font-mono text-moss-600 bg-moss-50 px-1.5 py-0.5 rounded ${widget.functionPath ? '' : 'hidden'}">${widget.functionPath || ''}</span>
       </div>
       <div id="${chartId}" class="flex-1 w-full min-h-0"></div>
       <div class="widget-loader absolute inset-0 bg-white/80 flex items-center justify-center rounded-xl z-30 hidden">
