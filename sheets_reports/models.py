@@ -68,6 +68,10 @@ class WidgetInstance(models.Model):
         blank=True,
         help_text="JSON con todas las propiedades del frontend necesarias para renderizar el widget (ancho, alto, colores, etc.).",
     )
+    order = models.IntegerField(
+        default=0,
+        help_text="Orden del widget en el lienzo (posición).",
+    )
     created_at = models.DateTimeField(
         auto_now_add=True,
         help_text="Fecha y hora de creación del widget.",
@@ -76,7 +80,7 @@ class WidgetInstance(models.Model):
     class Meta:
         verbose_name = "Widget Instance"
         verbose_name_plural = "Widget Instances"
-        ordering = ["created_at"]
+        ordering = ["order", "created_at"]
 
     def __str__(self):
         return self.title or f"{self.get_chart_type_display()} ({self.id})"

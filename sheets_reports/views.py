@@ -54,7 +54,7 @@ def dashboard_widgets(request, dashboard_id):
 
     if request.method == "GET":
         widgets = dashboard.widgets.all().values(
-            "id", "title", "chart_type", "function_path", "properties"
+            "id", "title", "chart_type", "function_path", "properties", "order"
         )
         return JsonResponse(list(widgets), safe=False)
 
@@ -65,13 +65,16 @@ def dashboard_widgets(request, dashboard_id):
             title=data.get("title", ""),
             chart_type=data.get("chart_type", "bar"),
             function_path=data.get("function_path", ""),
-            properties={},
+            properties=data.get("properties", {}),
+            order=data.get("order", 0),
         )
         return JsonResponse({
             "id": widget.id,
             "title": widget.title,
             "chart_type": widget.chart_type,
             "function_path": widget.function_path,
+            "properties": widget.properties,
+            "order": widget.order,
         }, status=201)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=400)
@@ -92,7 +95,7 @@ def widget_detail(request, widget_id):
 
     try:
         data = _get_request_data(request)
-        for field in ("title", "chart_type", "function_path"):
+        for field in ("title", "chart_type", "function_path", "properties", "order"):
             if field in data:
                 setattr(widget, field, data[field])
         widget.save()
@@ -101,6 +104,8 @@ def widget_detail(request, widget_id):
             "title": widget.title,
             "chart_type": widget.chart_type,
             "function_path": widget.function_path,
+            "properties": widget.properties,
+            "order": widget.order,
         })
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=400)

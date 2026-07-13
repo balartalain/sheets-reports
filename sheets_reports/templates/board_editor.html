@@ -204,6 +204,7 @@
         try {
           const r = await fetch(`/api/dashboard/${this.dashboardId}/widgets/`);
           const data = await r.json();
+          data.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
           this.widgets = data.map(w => ({
             id: w.id,
             title: w.title,
@@ -212,6 +213,7 @@
             width: (w.properties && w.properties.width) || 'col-span-6',
             height: (w.properties && w.properties.height) || 300,
             startCol: (w.properties && w.properties.startCol) || '',
+            order: w.order ?? 0,
             _dirty: false,
             _loading: false,
           }));
@@ -238,6 +240,7 @@
           width: def.width,
           height: def.height,
           startCol: '',
+          order: this.widgets.length,
           _dirty: true,
           _loading: false,
         };
@@ -246,17 +249,24 @@
       },
 
       async _saveWidget(w) {
+        const body = {
+          title: w.title,
+          chart_type: w.chart_type,
+          function_path: w.functionPath,
+          properties: { width: w.width, height: w.height, startCol: w.startCol },
+          order: w.order,
+        };
         if (w.id > 0) {
           await fetch(`/api/widget/${w.id}/`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: w.title, chart_type: w.chart_type, function_path: w.functionPath }),
+            body: JSON.stringify(body),
           });
         } else {
           const r = await fetch(`/api/dashboard/${this.dashboardId}/widgets/`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: w.title, chart_type: w.chart_type, function_path: w.functionPath }),
+            body: JSON.stringify(body),
           });
           const data = await r.json();
           const oldId = w.id;
@@ -279,7 +289,18 @@
       },
 
       reorderWidgets() {
-        // el orden se preserva en la BD al crear/eliminar widgets
+        const canvasEl = document.getElementById('dashboard-canvas');
+        if (!canvasEl) return;
+        const widgetEls = canvasEl.querySelectorAll('[data-widget-id]');
+        widgetEls.forEach((el, i) => {
+          const id = parseInt(el.dataset.widgetId);
+          const w = this.widgets.find(w => w.id === id);
+          if (w && w.order !== i) {
+            w.order = i;
+            w._dirty = true;
+          }
+        });
+        this.widgets.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
       },
 
       openDrawer(id) {
@@ -578,10 +599,15 @@
           window.dispatchEvent(new Event('resize'));
         });
       },
+
+      onEnd: function () {
+        store.reorderWidgets();
+      },
     });
 
     document.getElementById('save-btn').addEventListener('click', async () => {
       const store = Alpine.store('dashboard');
+      store.reorderWidgets();
       for (const w of store.widgets) {
         if (w._dirty) await store._saveWidget(w);
       }
