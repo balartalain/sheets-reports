@@ -2,9 +2,10 @@ document.addEventListener('alpine:init', () => {
   Alpine.store('dashboard', {
     widgets: [],
     editingId: null,
+    editingType: null,
     dashboardId: window.DASHBOARD_ID,
     availableFunctions: [],
-    drawerDraft: { title: '', functionPath: '', width: 'col-span-6', height: 300, startCol: '' },
+    drawerDraft: { title: '', functionPath: '', width: 'col-span-6', height: 300, startCol: '', field: '' },
     _nextId: -1,
 
     get flatFunctions() {
@@ -96,18 +97,21 @@ document.addEventListener('alpine:init', () => {
       const w = this.widgets.find(w => w.id === id);
       if (!w) return;
       this.editingId = id;
+      this.editingType = w.chart_type;
       this.drawerDraft = {
         title: w.title,
         functionPath: w.functionPath || '',
         width: w.width,
         height: w.height,
         startCol: w.startCol || '',
+        field: w.field || '',
       };
     },
 
     closeDrawer() {
       this.editingId = null;
-      this.drawerDraft = { title: '', functionPath: '', width: 'col-span-6', height: 300, startCol: '' };
+      this.editingType = null;
+      this.drawerDraft = { title: '', functionPath: '', width: 'col-span-6', height: 300, startCol: '', field: '' };
     },
 
     async saveDrawer() {

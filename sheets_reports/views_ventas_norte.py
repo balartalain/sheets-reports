@@ -4,11 +4,14 @@ Cada función recibe (df, request, widget) y retorna un JsonResponse.
 """
 from django.http import JsonResponse
 
+from sheets_reports.utils.widget_dispatcher import apply_active_filters, get_active_filters
+
 def ventas_por_producto(df, request, widget):
     """
     Ejemplo: retorna ventas agregadas por producto.
     Retorna formato compatible con ApexCharts: { series: [{ name, data }], categories: [...] }.
     """
+    df = apply_active_filters(df, request, widget)
     if df.empty:
         categories = ["Producto A", "Producto B", "Producto C"]
         data_values = [45000, 32000, 28000]
@@ -35,6 +38,7 @@ def total_ventas(df, request, widget):
     devuelve datos de muestra.
     Retorna formato compatible con ApexCharts: { series: [{ name, data }], categories: [...] }.
     """
+    df = apply_active_filters(df, request, widget)
     if df.empty:
         categories = ["Ene", "Feb", "Mar", "Abr", "May", "Jun"]
         data_values = [14300, 19800, 8500, 11000, 16400, 15000]
@@ -56,6 +60,7 @@ def ventas_por_vendedor(df, request, widget):
     Ejemplo: retorna ventas agregadas por vendedor.
     Retorna formato compatible con ApexCharts: { series: [{ name, data }], categories: [...] }.
     """
+    df = apply_active_filters(df, request, widget)
     if df.empty:
         categories = ["Cajero 1", "Cajero 2", "Cajero 3"]
         data_values = [32000, 28500, 22400, 19100]
@@ -74,6 +79,7 @@ def kpi_resumen(df, request, widget):
     """
     Ejemplo: retorna indicadores clave del tablero.
     """
+    df = apply_active_filters(df, request, widget)
     if df.empty:
         data = {
             "total_ventas": 102000,
@@ -93,9 +99,11 @@ def kpi_resumen(df, request, widget):
 
 def filtro_annos(df, request, widget):
     """
-    Ejemplo: retorna lista de años únicos para un filtro.
+    Ejemplo: retorna lista de años únicos para un filtro, junto con el valor
+    ya guardado en sesión (si existe), para que el widget lo preseleccione
+    al cargar la página en vez de mostrarse vacío.
     """
-    data = [2026, 2025, 2024]  # Ahora es directamente una lista/array
+    data = [2026, 2025, 2024]
+    selected = get_active_filters(request, widget).get("Año")
 
-    # safe=False permite que el elemento raíz del JSON sea una lista
-    return JsonResponse(data, safe=False)
+    return JsonResponse({"options": data, "selected": selected})

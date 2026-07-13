@@ -30,4 +30,5 @@ urlpatterns = [
     path('api/widget/<int:widget_id>/', views.widget_detail, name='widget_detail'),
     path('api/widget/<int:widget_id>/data/', views.widget_data, name='widget_data'),
     path('api/widget-functions/', views.widget_functions, name='widget_functions'),
+    path('api/dashboard/<int:board_id>/filters/', views.dashboard_filters, name='dashboard_filters'),
 ]

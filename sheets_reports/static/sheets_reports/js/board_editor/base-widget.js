@@ -181,11 +181,23 @@
 
       el.querySelector('.delete-widget-btn').addEventListener('click', () => {
         Alpine.store('dashboard').removeWidget(this.id);
+        this.destroy();
         el.remove();
       });
 
       const resizeHandle = el.querySelector('.resize-handle');
       if (resizeHandle) resizeHandle.addEventListener('mousedown', (e) => this._onResizeStart(e));
+
+      this._onFiltersChanged = () => this.fetchAndRender();
+      window.addEventListener('dashboard:filters-changed', this._onFiltersChanged);
+    }
+
+    destroy() {
+      window.removeEventListener('dashboard:filters-changed', this._onFiltersChanged);
+      if (this._chart) {
+        this._chart.destroy();
+        this._chart = null;
+      }
     }
 
     _onResizeStart(e) {

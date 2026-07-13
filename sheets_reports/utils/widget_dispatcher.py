@@ -44,10 +44,34 @@ def _import_function(function_path: str):
     return module, func_name, None
 
 
+def get_active_filters(request, widget) -> dict:
+    """Filtros activos guardados en sesión para el tablero de este widget: {campo: valor}."""
+    return request.session.get("dashboard_filters", {}).get(str(widget.dashboard_id), {})
+
+
+def apply_active_filters(df, request, widget):
+    """
+    Aplica los filtros activos del tablero al DataFrame, comparando cada
+    filtro contra la columna del mismo nombre (si existe). Filtros sin valor,
+    o cuyo nombre no coincide con ninguna columna, se ignoran.
+    """
+    if df.empty:
+        return df
+    for field, value in get_active_filters(request, widget).items():
+        if not value or field not in df.columns:
+            continue
+        df = df[df[field].astype(str) == str(value)]
+    return df
+
+
 def dispatch_widget(request, widget_id: int) -> JsonResponse:
     """
     Obtiene el widget, importa el módulo desde widget.function_path,
     y ejecuta la función correspondiente.
+
+    Convención para filtros: cada función puede aplicar los filtros activos
+    de su tablero al DataFrame con `apply_active_filters(df, request, widget)`
+    (o leerlos directamente con `get_active_filters(request, widget)`).
     """
     try:
         widget = WidgetInstance.objects.select_related("dashboard").get(id=widget_id)
