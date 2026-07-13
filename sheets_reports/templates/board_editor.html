@@ -187,6 +187,7 @@
       widgets: [],
       editingId: null,
       dashboardId: DASHBOARD_ID,
+
       availableFunctions: [],
       drawerDraft: { title: '', functionPath: '', width: 'col-span-6', height: 300, startCol: '' },
 
@@ -212,13 +213,16 @@
             width: (w.properties && w.properties.width) || 'col-span-6',
             height: (w.properties && w.properties.height) || 300,
             startCol: (w.properties && w.properties.startCol) || '',
+            _dirty: false,
           }));
         } catch (e) {
           this.widgets = [];
         }
       },
 
-      async addWidget(type) {
+      _nextId: -1,
+
+      addWidget(type) {
         const defaults = {
           bar: { title: 'Gráfico de Barras', width: 'col-span-6', height: 300 },
           line: { title: 'Gráfico de Líneas', width: 'col-span-6', height: 300 },
@@ -226,34 +230,51 @@
           filter: { title: 'Filtro', width: 'col-span-4', height: 48 },
         };
         const def = defaults[type];
-        try {
+        const widget = {
+          id: this._nextId--,
+          title: def.title,
+          chart_type: type,
+          functionPath: '',
+          width: def.width,
+          height: def.height,
+          startCol: '',
+          _dirty: true,
+        };
+        this.widgets.push(widget);
+        return widget;
+      },
+
+      async _saveWidget(w) {
+        if (w.id > 0) {
+          await fetch(`/api/widget/${w.id}/`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: w.title, chart_type: w.chart_type, function_path: w.functionPath }),
+          });
+        } else {
           const r = await fetch(`/api/dashboard/${this.dashboardId}/widgets/`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: def.title, chart_type: type, function_path: '' }),
+            body: JSON.stringify({ title: w.title, chart_type: w.chart_type, function_path: w.functionPath }),
           });
           const data = await r.json();
-          const widget = {
-            id: data.id,
-            title: data.title,
-            chart_type: data.chart_type,
-            functionPath: data.function_path || '',
-            width: def.width,
-            height: def.height,
-            startCol: '',
-          };
-          this.widgets.push(widget);
-          return widget;
-        } catch (e) {
-          return null;
+          const oldId = w.id;
+          w.id = data.id;
+          const el = document.querySelector(`[data-widget-id="${oldId}"]`);
+          if (el) {
+            el.dataset.widgetId = data.id;
+            const chartContainer = el.querySelector(`#chart-${oldId}`);
+            if (chartContainer) chartContainer.id = `chart-${data.id}`;
+          }
         }
+        w._dirty = false;
       },
 
       async removeWidget(id) {
-        try {
-          await fetch(`/api/widget/${id}/`, { method: 'DELETE' });
-          this.widgets = this.widgets.filter(w => w.id !== id);
-        } catch (e) {}
+        if (id > 0) {
+          try { await fetch(`/api/widget/${id}/`, { method: 'DELETE' }); } catch (e) {}
+        }
+        this.widgets = this.widgets.filter(w => w.id !== id);
       },
 
       reorderWidgets() {
@@ -282,14 +303,11 @@
         const w = this.widgets.find(w => w.id === this.editingId);
         if (!w) return;
         Object.assign(w, this.drawerDraft);
+        w._dirty = true;
 
-        await fetch(`/api/widget/${w.id}/`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: w.title, chart_type: w.chart_type, function_path: w.functionPath }),
-        });
+        await this._saveWidget(w);
 
-        const el = document.querySelector(`[data-widget-id="${this.editingId}"]`);
+        const el = document.querySelector(`[data-widget-id="${w.id}"]`);
         if (el) {
           const titleEl = el.querySelector('.title-display');
           if (titleEl) titleEl.textContent = w.title;
@@ -313,7 +331,7 @@
       },
 
       fetchWidgetData(w) {
-        if (!w.functionPath) return;
+        if (!w.functionPath || w.id < 0) return;
         fetch(`/api/widget/${w.id}/data/`)
           .then(r => r.json())
           .then(data => {
@@ -326,26 +344,43 @@
     });
   });
 
+  const MOCK_DATA = {
+    bar: {
+      series: [{ name: 'Ejecutado', data: [14200, 19800, 8500, 11000, 6400, 15000] }],
+      categories: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
+    },
+    line: {
+      series: [{ name: 'Tendencia', data: [45, 52, 38, 65, 59, 87] }],
+      categories: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
+    },
+    kpi: {
+      total_ventas: 412900,
+      label: 'Monto Consumido',
+    },
+  };
+
   function renderComponentContent(container, type, data) {
     if (!container) return;
     container.innerHTML = '';
 
     if (type === 'bar' || type === 'line') {
-      const series = data?.series || [{ name: 'Ejecutado', data: [] }];
-      const categories = data?.categories || [];
+      const payload = data || MOCK_DATA[type];
+      const series = payload.series || [{ name: 'Datos', data: [] }];
+      const categories = payload.categories || [];
       const options = {
-        chart: { type: type === 'bar' ? 'bar' : 'line', height: '100%', width: '100%', fontFamily: 'inherit', toolbar: { show: false } },
+        chart: { type, height: '100%', width: '100%', fontFamily: 'inherit', toolbar: { show: false } },
         colors: type === 'bar' ? ['#2563eb'] : ['#7c3aed'],
         stroke: type === 'line' ? { curve: 'smooth', width: 3 } : undefined,
         series,
         xaxis: { categories, labels: { style: { fontSize: '11px' } } },
         plotOptions: type === 'bar' ? { bar: { borderRadius: 4, columnWidth: '55%' } } : undefined,
-        grid: { padding: { bottom: 25 } }
+        grid: { padding: { bottom: 25 } },
       };
       new ApexCharts(container, options).render();
     } else if (type === 'kpi') {
-      const value = data?.total_ventas ?? '—';
-      const label = data?.label ?? 'Total';
+      const payload = data || MOCK_DATA.kpi;
+      const value = payload.total_ventas ?? '—';
+      const label = payload.label ?? 'Total';
       container.className = "flex flex-col items-center justify-center h-full pb-3";
       container.innerHTML = `
         <span class="text-2xl font-black text-ink tracking-tight">${Number(value).toLocaleString()}</span>
@@ -365,7 +400,9 @@
 
   function createWidgetDOM(widget) {
     if (widget.chart_type === 'filter') {
-      return createFilterWidgetDOM(widget);
+      const el = createFilterWidgetDOM(widget);
+      attachWidgetEvents(el, widget);
+      return el;
     }
 
     const chartId = `chart-${widget.id}`;
@@ -470,7 +507,7 @@
       document.addEventListener('mouseup', onMouseUp);
     });
 
-    const container = document.getElementById(`chart-${widget.id}`);
+    const container = el.querySelector(`#chart-${widget.id}`);
     if (container) {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -513,18 +550,20 @@
 
       onAdd: function (evt) {
         const type = evt.item.getAttribute('data-type');
-        store.addWidget(type).then(widget => {
-          if (!widget) return;
-          const widgetEl = createWidgetDOM(widget);
-          evt.item.replaceWith(widgetEl);
-          requestAnimationFrame(() => {
-            window.dispatchEvent(new Event('resize'));
-          });
+        const widget = store.addWidget(type);
+        const widgetEl = createWidgetDOM(widget);
+        evt.item.replaceWith(widgetEl);
+        requestAnimationFrame(() => {
+          window.dispatchEvent(new Event('resize'));
         });
       },
     });
 
-    document.getElementById('save-btn').addEventListener('click', () => {
+    document.getElementById('save-btn').addEventListener('click', async () => {
+      const store = Alpine.store('dashboard');
+      for (const w of store.widgets) {
+        if (w._dirty) await store._saveWidget(w);
+      }
       alert('Widgets guardados en la base de datos.');
     });
   });
