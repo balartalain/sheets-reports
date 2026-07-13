@@ -101,6 +101,32 @@
     mount() {
       this.el = this.buildElement();
       this._attachCommonEvents();
+      this._attachFiltersListener();
+      const container = this.getContentContainer();
+      if (container) {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => this.renderContent(container));
+        });
+      }
+      return this.el;
+    }
+
+    buildReadOnlyElement() {
+      const el = document.createElement('div');
+      el.className = `${this.width}${this.startCol ? ' ' + this.startCol : ''} bg-white border border-line rounded-xl shadow-sm p-4 flex flex-col justify-between relative`;
+      el.style.height = this.height + 'px';
+      el.dataset.widgetId = this.id;
+      el.dataset.type = this.chart_type;
+      const titleHTML = this.title
+        ? `<div class="flex items-center border-b border-line pb-2 mb-2"><span class="text-[10px] font-bold uppercase tracking-wider text-ink/40">${BaseWidget.escapeHTML(this.title)}</span></div>`
+        : '';
+      el.innerHTML = `${titleHTML}<div id="chart-${this.id}" class="flex-1 w-full min-h-0"></div>`;
+      return el;
+    }
+
+    mountReadOnly() {
+      this.el = this.buildReadOnlyElement();
+      this._attachFiltersListener();
       const container = this.getContentContainer();
       if (container) {
         requestAnimationFrame(() => {
@@ -187,7 +213,9 @@
 
       const resizeHandle = el.querySelector('.resize-handle');
       if (resizeHandle) resizeHandle.addEventListener('mousedown', (e) => this._onResizeStart(e));
+    }
 
+    _attachFiltersListener() {
       this._onFiltersChanged = () => this.fetchAndRender();
       window.addEventListener('dashboard:filters-changed', this._onFiltersChanged);
     }

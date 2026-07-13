@@ -68,4 +68,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     alert('Widgets guardados en la base de datos.');
   });
+
+  document.getElementById('share-btn').addEventListener('click', () => {
+    const url = `${window.location.origin}/tableros/${window.DASHBOARD_ID}/shared/`;
+    window.prompt('Enlace para compartir (solo lectura):', url);
+  });
 });

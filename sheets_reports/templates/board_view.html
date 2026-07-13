@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Report IA — Tablero{% endblock %}
+
+{% block header %}{% endblock %}
+
+{% block content %}
+
+<div class="max-w-7xl mx-auto p-6">
+  <div id="dashboard-canvas" class="grid grid-cols-12 gap-4">
+  </div>
+</div>
+
+<script>
+  window.DASHBOARD_ID = {{ board_id }};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+<script src="{% static 'sheets_reports/js/board_editor/base-widget.js' %}"></script>
+<script src="{% static 'sheets_reports/js/board_editor/widget-registry.js' %}"></script>
+
+<script src="{% static 'sheets_reports/js/board_editor/widgets/bar-widget.js' %}"></script>
+<script src="{% static 'sheets_reports/js/board_editor/widgets/line-widget.js' %}"></script>
+<script src="{% static 'sheets_reports/js/board_editor/widgets/kpi-widget.js' %}"></script>
+<script src="{% static 'sheets_reports/js/board_editor/widgets/filter-widget.js' %}"></script>
+
+<script src="{% static 'sheets_reports/js/board_editor/board-view-init.js' %}"></script>
+
+{% endblock %}

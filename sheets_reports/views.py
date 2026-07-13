@@ -20,6 +20,10 @@ def board_editor(request, board_id):
     return render(request, 'board_editor.html', {'board_id': board_id})
 
 
+def board_view(request, board_id):
+    return render(request, 'board_view.html', {'board_id': board_id})
+
+
 def widget_data(request, widget_id):
     """
     Endpoint AJAX que retorna los datos procesados para un widget específico.

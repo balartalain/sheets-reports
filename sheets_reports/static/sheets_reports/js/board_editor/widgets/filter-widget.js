@@ -42,6 +42,16 @@
       return el;
     }
 
+    buildReadOnlyElement() {
+      const el = document.createElement('div');
+      el.className = `${this.width}${this.startCol ? ' ' + this.startCol : ''} relative flex items-center`;
+      el.style.height = this.height + 'px';
+      el.dataset.widgetId = this.id;
+      el.dataset.type = this.chart_type;
+      el.innerHTML = `<div id="chart-${this.id}" class="flex-1 min-w-0"></div>`;
+      return el;
+    }
+
     renderContent(container, data) {
       let items, selected = null;
       if (data && !Array.isArray(data) && typeof data === 'object') {

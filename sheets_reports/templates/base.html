@@ -41,6 +41,7 @@
 </head>
 <body class="bg-paper text-ink antialiased min-h-screen">
 
+{% block header %}
 <header class="border-b border-line bg-white">
   <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
     <div class="flex items-center gap-2">
@@ -59,6 +60,7 @@
     </div>
   </div>
 </header>
+{% endblock %}
 
 {% block content %}{% endblock %}
 
