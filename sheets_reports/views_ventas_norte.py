@@ -4,6 +4,23 @@ Cada función recibe (df, request, widget) y retorna un JsonResponse.
 """
 from django.http import JsonResponse
 
+def ventas_por_producto(df, request, widget):
+    """
+    Ejemplo: retorna ventas agregadas por producto.
+    Retorna formato compatible con ApexCharts: { series: [{ name, data }], categories: [...] }.
+    """
+    if df.empty:
+        categories = ["Producto A", "Producto B", "Producto C"]
+        data_values = [45000, 32000, 28000]
+    else:
+        grouped = df.groupby("Producto")["Ventas"].sum()
+        categories = grouped.index.tolist()
+        data_values = grouped.tolist()
+
+    return JsonResponse({
+        "series": [{"name": "Ventas", "data": data_values}],
+        "categories": categories,
+    })
 
 def total_ventas(df, request, widget):
     """
@@ -16,7 +33,7 @@ def total_ventas(df, request, widget):
         categories = ["Ene", "Feb", "Mar", "Abr", "May", "Jun"]
         data_values = [14300, 19800, 8500, 11000, 16400, 15000]
     else:
-        grouped = df.groupby("mes")["monto"].sum()
+        grouped = df.groupby("Mes")["Ventas"].sum()
         categories = grouped.index.tolist()
         data_values = grouped.tolist()
 
@@ -32,10 +49,10 @@ def ventas_por_vendedor(df, request, widget):
     Retorna formato compatible con ApexCharts: { series: [{ name, data }], categories: [...] }.
     """
     if df.empty:
-        categories = ["Carlos", "María", "José", "Ana"]
+        categories = ["Cajero 1", "Cajero 2", "Cajero 3"]
         data_values = [32000, 28500, 22400, 19100]
     else:
-        grouped = df.groupby("vendedor")["monto"].sum()
+        grouped = df.groupby("Vendedor")["Ventas"].sum()
         categories = grouped.index.tolist()
         data_values = grouped.tolist()
 
@@ -58,10 +75,10 @@ def kpi_resumen(df, request, widget):
         }
     else:
         data = {
-            "total_ventas": int(df["monto"].sum()),
-            "promedio_por_mes": int(df["monto"].mean()),
-            "total_vendedores": df["vendedor"].nunique(),
-            "mejor_mes": df.groupby("mes")["monto"].sum().idxmax(),
+            "total_ventas": int(df["Ventas"].sum()),
+            "promedio_por_mes": int(df["Ventas"].mean()),
+            "total_vendedores": df["Vendedor"].nunique(),
+            "mejor_mes": df.groupby("Mes")["Ventas"].sum().idxmax(),
         }
 
     return JsonResponse(data)
