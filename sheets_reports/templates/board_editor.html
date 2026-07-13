@@ -537,6 +537,7 @@
     store.widgets.forEach(w => {
       canvasEl.appendChild(createWidgetDOM(w));
     });
+    store.widgets.forEach(w => store.fetchWidgetData(w));
 
     fetch('/api/widget-functions/')
       .then(r => r.json())
