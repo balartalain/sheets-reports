@@ -22,6 +22,12 @@ def ventas_por_producto(df, request, widget):
         "categories": categories,
     })
 
+_MESES_ORDEN = {
+    "Ene": 1, "Feb": 2, "Mar": 3, "Abr": 4, "May": 5, "Jun": 6,
+    "Jul": 7, "Ago": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dic": 12,
+}
+
+
 def total_ventas(df, request, widget):
     """
     Ejemplo: retorna el total de ventas por mes.
@@ -33,9 +39,11 @@ def total_ventas(df, request, widget):
         categories = ["Ene", "Feb", "Mar", "Abr", "May", "Jun"]
         data_values = [14300, 19800, 8500, 11000, 16400, 15000]
     else:
-        grouped = df.groupby("Mes")["Ventas"].sum()
-        categories = grouped.index.tolist()
-        data_values = grouped.tolist()
+        grouped = df.groupby("Mes")["Ventas"].sum().reset_index()
+        grouped["_orden"] = grouped["Mes"].map(_MESES_ORDEN)
+        grouped = grouped.sort_values("_orden")
+        categories = grouped["Mes"].tolist()
+        data_values = grouped["Ventas"].tolist()
 
     return JsonResponse({
         "series": [{"name": "Total ventas", "data": data_values}],
