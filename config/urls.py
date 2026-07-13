@@ -23,6 +23,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.home, name='home'),
     path('tableros/<int:board_id>/', views.board_editor, name='board_editor'),
+    path('api/dashboard/<int:dashboard_id>/widgets/', views.dashboard_widgets, name='dashboard_widgets'),
+    path('api/widget/<int:widget_id>/', views.widget_detail, name='widget_detail'),
     path('api/widget/<int:widget_id>/data/', views.widget_data, name='widget_data'),
     path('api/widget-functions/', views.widget_functions, name='widget_functions'),
 ]

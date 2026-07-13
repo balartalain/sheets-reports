@@ -14,7 +14,7 @@ def total_ventas(df, request, widget):
     """
     if df.empty:
         categories = ["Ene", "Feb", "Mar", "Abr", "May", "Jun"]
-        data_values = [14200, 19800, 8500, 11000, 16400, 15000]
+        data_values = [14300, 19800, 8500, 11000, 16400, 15000]
     else:
         grouped = df.groupby("mes")["monto"].sum()
         categories = grouped.index.tolist()

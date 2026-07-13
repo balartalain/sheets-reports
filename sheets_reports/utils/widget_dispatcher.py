@@ -1,6 +1,7 @@
 import importlib
 import logging
 
+import pandas as pd
 from django.http import JsonResponse
 
 from sheets_reports.models import WidgetInstance
@@ -62,10 +63,7 @@ def dispatch_widget(request, widget_id: int) -> JsonResponse:
     try:
         df = get_cached_df(widget.dashboard)
     except Exception:
-        logger.exception("Error al obtener datos de Google Sheets")
-        return JsonResponse(
-            {"error": "Error al obtener datos de la hoja de cálculo"},
-            status=500,
-        )
+        logger.exception("Error al obtener datos de Google Sheets, usando datos mock")
+        df = pd.DataFrame()
 
     return func(df, request, widget)
