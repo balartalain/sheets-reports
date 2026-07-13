@@ -213,6 +213,7 @@
             height: (w.properties && w.properties.height) || 300,
             startCol: (w.properties && w.properties.startCol) || '',
             _dirty: false,
+            _loading: false,
           }));
         } catch (e) {
           this.widgets = [];
@@ -238,6 +239,7 @@
           height: def.height,
           startCol: '',
           _dirty: true,
+          _loading: false,
         };
         this.widgets.push(widget);
         return widget;
@@ -331,6 +333,10 @@
 
       fetchWidgetData(w) {
         if (!w.functionPath || w.id < 0) return;
+        const el = document.querySelector(`[data-widget-id="${w.id}"]`);
+        const loader = el && el.querySelector('.widget-loader');
+        if (loader) loader.classList.remove('hidden');
+        w._loading = true;
         fetch(`/api/widget/${w.id}/data/`)
           .then(r => r.json())
           .then(data => {
@@ -338,7 +344,11 @@
             if (!container) return;
             renderComponentContent(container, w.chart_type, data);
           })
-          .catch(() => {});
+          .catch(() => {})
+          .finally(() => {
+            if (loader) loader.classList.add('hidden');
+            w._loading = false;
+          });
       },
     });
   });
@@ -430,6 +440,12 @@
         <span class="function-path-display text-[9px] font-mono text-moss-600 bg-moss-50 px-1.5 py-0.5 rounded ${widget.functionPath ? '' : 'hidden'}">${widget.functionPath || ''}</span>
       </div>
       <div id="${chartId}" class="flex-1 w-full min-h-0"></div>
+      <div class="widget-loader absolute inset-0 bg-white/80 flex items-center justify-center rounded-xl z-30 hidden">
+        <svg class="animate-spin h-5 w-5 text-moss-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      </div>
       <div class="absolute -top-2.5 -right-2.5 flex items-center space-x-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-white border border-line rounded-md shadow-sm px-1 py-0.5 z-30">
         <button class="edit-widget-btn text-ink/40 hover:text-moss-600 transition cursor-pointer p-0.5">
           <svg viewBox="0 0 14 14" class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
