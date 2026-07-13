@@ -10,39 +10,39 @@ def total_ventas(df, request, widget):
     Ejemplo: retorna el total de ventas por mes.
     Mock: si el DataFrame está vacío o no tiene las columnas esperadas,
     devuelve datos de muestra.
+    Retorna formato compatible con ApexCharts: { series: [{ name, data }], categories: [...] }.
     """
     if df.empty:
-        data = {
-            "ene": 14200,
-            "feb": 19800,
-            "mar": 8500,
-            "abr": 11000,
-            "may": 16400,
-            "jun": 15000,
-        }
+        categories = ["Ene", "Feb", "Mar", "Abr", "May", "Jun"]
+        data_values = [14200, 19800, 8500, 11000, 16400, 15000]
     else:
         grouped = df.groupby("mes")["monto"].sum()
-        data = grouped.to_dict()
+        categories = grouped.index.tolist()
+        data_values = grouped.tolist()
 
-    return JsonResponse(data)
+    return JsonResponse({
+        "series": [{"name": "Total ventas", "data": data_values}],
+        "categories": categories,
+    })
 
 
 def ventas_por_vendedor(df, request, widget):
     """
     Ejemplo: retorna ventas agregadas por vendedor.
+    Retorna formato compatible con ApexCharts: { series: [{ name, data }], categories: [...] }.
     """
     if df.empty:
-        data = {
-            "Carlos": 32000,
-            "María": 28500,
-            "José": 22400,
-            "Ana": 19100,
-        }
+        categories = ["Carlos", "María", "José", "Ana"]
+        data_values = [32000, 28500, 22400, 19100]
     else:
         grouped = df.groupby("vendedor")["monto"].sum()
-        data = grouped.to_dict()
+        categories = grouped.index.tolist()
+        data_values = grouped.tolist()
 
-    return JsonResponse(data)
+    return JsonResponse({
+        "series": [{"name": "Ventas", "data": data_values}],
+        "categories": categories,
+    })
 
 
 def kpi_resumen(df, request, widget):

@@ -124,6 +124,18 @@
       </div>
 
       <div>
+        <label class="block text-xs font-semibold text-ink/70 mb-1">Función del servidor</label>
+        <select x-model="$store.dashboard.drawerDraft.functionPath" class="w-full text-sm border border-line rounded-lg px-3 py-2 focus:outline-none focus:border-moss-500">
+          <option value="">— Sin asignar —</option>
+          <template x-for="group in $store.dashboard.availableFunctions" :key="group.module">
+            <optgroup x-bind:label="group.module">
+              <option x-for="fn in group.functions" :key="fn.path" x-bind:value="fn.path" x-text="fn.name"></option>
+            </optgroup>
+          </template>
+        </select>
+      </div>
+
+      <div>
         <label class="block text-xs font-semibold text-ink/70 mb-1">Ancho</label>
         <select x-model="$store.dashboard.drawerDraft.width" class="w-full text-sm border border-line rounded-lg px-3 py-2 focus:outline-none focus:border-moss-500">
           <option value="col-span-3">25%</option>
@@ -171,7 +183,8 @@
     Alpine.store('dashboard', {
       widgets: [],
       editingId: null,
-      drawerDraft: { title: '', width: 'col-span-6', height: 300 },
+      availableFunctions: [],
+      drawerDraft: { title: '', functionPath: '', width: 'col-span-6', height: 300, startCol: '' },
 
       saveToStorage() {
         localStorage.setItem('formbuilder_layout', JSON.stringify(this.widgets));
@@ -188,10 +201,10 @@
 
       addWidget(type) {
         const defaults = {
-          bar: { title: 'Gráfico de Barras', width: 'col-span-6', height: 300, startCol: '' },
-          line: { title: 'Gráfico de Líneas', width: 'col-span-6', height: 300, startCol: '' },
-          kpi: { title: 'Tarjeta KPI', width: 'col-span-4', height: 300, startCol: '' },
-          filter: { title: 'Filtro', width: 'col-span-4', height: 48, startCol: '' },
+          bar: { title: 'Gráfico de Barras', width: 'col-span-6', height: 300, startCol: '', functionPath: '' },
+          line: { title: 'Gráfico de Líneas', width: 'col-span-6', height: 300, startCol: '', functionPath: '' },
+          kpi: { title: 'Tarjeta KPI', width: 'col-span-4', height: 300, startCol: '', functionPath: '' },
+          filter: { title: 'Filtro', width: 'col-span-4', height: 48, startCol: '', functionPath: '' },
         };
         const widget = {
           id: 'chart_' + Math.random().toString(36).substring(2, 11),
@@ -218,12 +231,18 @@
         const w = this.widgets.find(w => w.id === id);
         if (!w) return;
         this.editingId = id;
-        this.drawerDraft = { title: w.title, width: w.width, height: w.height, startCol: w.startCol || '' };
+        this.drawerDraft = {
+          title: w.title,
+          functionPath: w.functionPath || '',
+          width: w.width,
+          height: w.height,
+          startCol: w.startCol || '',
+        };
       },
 
       closeDrawer() {
         this.editingId = null;
-        this.drawerDraft = { title: '', width: 'col-span-6', height: 300, startCol: '' };
+        this.drawerDraft = { title: '', functionPath: '', width: 'col-span-6', height: 300, startCol: '' };
       },
 
       saveDrawer() {
@@ -235,6 +254,12 @@
         if (el) {
           const titleEl = el.querySelector('.title-display');
           if (titleEl) titleEl.textContent = w.title;
+
+          const fnBadge = el.querySelector('.function-path-display');
+          if (fnBadge) {
+            fnBadge.textContent = w.functionPath || '';
+            fnBadge.classList.toggle('hidden', !w.functionPath);
+          }
 
           Array.from(el.classList).filter(c => c.startsWith('col-start-')).forEach(c => el.classList.remove(c));
           el.classList.remove('col-span-3', 'col-span-4', 'col-span-6', 'col-span-8', 'col-span-12');
@@ -314,6 +339,7 @@
       <div class="drag-handle cursor-move text-ink/30 hover:text-ink/60 absolute left-1 top-0 bottom-0 flex items-center opacity-0 group-hover:opacity-100 transition-opacity z-20 text-[1rem] leading-none">⣿</div>
       <div class="flex justify-between items-center border-b border-line pb-2 mb-2 select-none">
         <span class="title-display text-[10px] font-bold uppercase tracking-wider text-ink/40">${widget.title}</span>
+        <span class="function-path-display text-[9px] font-mono text-moss-600 bg-moss-50 px-1.5 py-0.5 rounded ${widget.functionPath ? '' : 'hidden'}">${widget.functionPath || ''}</span>
       </div>
       <div id="${widget.id}" class="flex-1 w-full min-h-0"></div>
       <div class="absolute -top-2.5 -right-2.5 flex items-center space-x-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-white border border-line rounded-md shadow-sm px-1 py-0.5 z-30">
@@ -424,6 +450,11 @@
     store.widgets.forEach(w => {
       canvasEl.appendChild(createWidgetDOM(w));
     });
+
+    fetch('/api/widget-functions/')
+      .then(r => r.json())
+      .then(data => { store.availableFunctions = data; })
+      .catch(() => {});
 
     requestAnimationFrame(() => {
       window.dispatchEvent(new Event('resize'));

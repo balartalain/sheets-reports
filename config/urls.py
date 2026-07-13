@@ -24,4 +24,5 @@ urlpatterns = [
     path('', views.home, name='home'),
     path('tableros/<int:board_id>/', views.board_editor, name='board_editor'),
     path('api/widget/<int:widget_id>/data/', views.widget_data, name='widget_data'),
+    path('api/widget-functions/', views.widget_functions, name='widget_functions'),
 ]
