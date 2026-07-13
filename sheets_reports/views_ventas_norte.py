@@ -90,3 +90,12 @@ def kpi_resumen(df, request, widget):
         }
 
     return JsonResponse(data)
+
+def filtro_annos(df, request, widget):
+    """
+    Ejemplo: retorna lista de años únicos para un filtro.
+    """
+    data = [2026, 2025, 2024]  # Ahora es directamente una lista/array
+
+    # safe=False permite que el elemento raíz del JSON sea una lista
+    return JsonResponse(data, safe=False)

@@ -12,6 +12,10 @@
     };
     static defaults = { title: 'Filtro', width: 'col-span-4', height: 48 };
 
+    static mockData() {
+      return [2021, 2022, 2023];
+    }
+
     buildElement() {
       const el = document.createElement('div');
       el.className = `${this.width}${this.startCol ? ' ' + this.startCol : ''} relative flex items-center group`;
@@ -29,12 +33,17 @@
     }
 
     renderContent(container, data) {
+      const items = data || this.constructor.mockData();
+      const optionsHTML = items.map(item => {
+        const value = (item && typeof item === 'object') ? item.value : item;
+        const label = (item && typeof item === 'object') ? (item.label ?? item.value) : item;
+        return `<option value="${BaseWidget.escapeHTML(String(value))}">${BaseWidget.escapeHTML(String(label))}</option>`;
+      }).join('');
+
       container.innerHTML = `
         <select class="w-full text-sm border border-line rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-moss-500">
-          <option value="">Seleccione filtro...</option>
-          <option value="ancho">Ancho</option>
-          <option value="alto">Alto</option>
-          <option value="tipo">Tipo</option>
+          <option value="">Seleccione...</option>
+          ${optionsHTML}
         </select>
       `;
     }
