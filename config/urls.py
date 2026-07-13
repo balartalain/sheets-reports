@@ -18,11 +18,14 @@ from django.contrib import admin
 from django.urls import path
 
 from sheets_reports import views
+from sheets_reports import views_dashboard
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.home, name='home'),
     path('tableros/<int:board_id>/', views.board_editor, name='board_editor'),
+    path('api/dashboards/', views_dashboard.dashboard_list, name='dashboard_list'),
+    path('api/dashboards/<int:dashboard_id>/', views_dashboard.dashboard_detail, name='dashboard_detail'),
     path('api/dashboard/<int:dashboard_id>/widgets/', views.dashboard_widgets, name='dashboard_widgets'),
     path('api/widget/<int:widget_id>/', views.widget_detail, name='widget_detail'),
     path('api/widget/<int:widget_id>/data/', views.widget_data, name='widget_data'),
