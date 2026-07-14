@@ -12,9 +12,17 @@
     static defaults = { title: 'Widget', width: 'col-span-6', height: 300 };
     static minHeight = 150;
 
-    static getGhostSpan() {
-      const m = /col-span-(\d+)/.exec(this.defaults.width);
+    static _parseSpan(widthClass) {
+      const m = /col-span-(\d+)/.exec(widthClass);
       return m ? parseInt(m[1], 10) : 6;
+    }
+
+    static getGhostSpan() {
+      return BaseWidget._parseSpan(this.defaults.width);
+    }
+
+    _ghostSpanFromWidth() {
+      return BaseWidget._parseSpan(this.width);
     }
 
     static escapeHTML(str) {
@@ -79,11 +87,12 @@
       const el = document.createElement('div');
       el.className = `${this.width}${this.startCol ? ' ' + this.startCol : ''} bg-white border border-line rounded-xl shadow-sm p-4 flex flex-col justify-between relative group`;
       el.style.height = this.height + 'px';
+      el.style.setProperty('--ghost-span', this._ghostSpanFromWidth());
       el.dataset.widgetId = this.id;
       el.dataset.type = this.chart_type;
       el.innerHTML = `
         ${BaseWidget.dragHandleHTML()}
-        <div class="flex justify-between items-center border-b border-line pb-2 mb-2 select-none">
+        <div class="flex justify-between items-center border-line pb-2 mb-2 select-none">
           <span class="title-display text-[10px] font-bold uppercase tracking-wider text-ink/40">${this.title}</span>
         </div>
         <div id="chart-${this.id}" class="flex-1 w-full min-h-0"></div>
@@ -118,7 +127,7 @@
       el.dataset.widgetId = this.id;
       el.dataset.type = this.chart_type;
       const titleHTML = this.title
-        ? `<div class="flex items-center border-b border-line pb-2 mb-2"><span class="text-[10px] font-bold uppercase tracking-wider text-ink/40">${BaseWidget.escapeHTML(this.title)}</span></div>`
+        ? `<div class="flex items-center border-line pb-2 mb-2"><span class="text-[10px] font-bold uppercase tracking-wider text-ink/40">${BaseWidget.escapeHTML(this.title)}</span></div>`
         : '';
       el.innerHTML = `${titleHTML}<div id="chart-${this.id}" class="flex-1 w-full min-h-0"></div>`;
       return el;
@@ -156,6 +165,7 @@
       this.el.classList.add(this.width);
       if (this.startCol) this.el.classList.add(this.startCol);
       this.el.style.height = this.height + 'px';
+      this.el.style.setProperty('--ghost-span', this._ghostSpanFromWidth());
 
       window.dispatchEvent(new Event('resize'));
     }

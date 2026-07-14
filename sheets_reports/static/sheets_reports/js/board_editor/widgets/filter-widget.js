@@ -30,6 +30,7 @@
       const el = document.createElement('div');
       el.className = `${this.width}${this.startCol ? ' ' + this.startCol : ''} relative flex items-center group`;
       el.style.height = this.height + 'px';
+      el.style.setProperty('--ghost-span', this._ghostSpanFromWidth());
       el.dataset.widgetId = this.id;
       el.dataset.type = this.chart_type;
 
