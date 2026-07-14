@@ -31,7 +31,7 @@
 
       el.innerHTML = `
         ${BaseWidget.dragHandleHTML()}
-        <div id="chart-${this.id}" class="flex-1 min-w-0 pl-4"></div>
+        <div id="chart-${this.id}" class="flex-1 min-w-0"></div>
         ${BaseWidget.actionButtonsHTML()}
         <div class="resize-handle absolute bottom-0 left-0 right-0 h-1.5 cursor-s-resize z-10 opacity-0 group-hover:opacity-60 hover:opacity-100 transition hover:bg-moss-300/40 rounded-b-lg"></div>
       `;
