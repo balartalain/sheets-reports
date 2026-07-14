@@ -247,16 +247,18 @@
       const startY = e.clientY;
       const startHeight = el.offsetHeight;
 
-      function onMouseMove(ev) {
+      const onMouseMove = (ev) => {
         const newHeight = Math.max(minHeight, startHeight + (ev.clientY - startY));
         el.style.height = newHeight + 'px';
         window.dispatchEvent(new Event('resize'));
-      }
+      };
 
-      function onMouseUp() {
+      const onMouseUp = () => {
+        this.height = el.offsetHeight;
+        this._dirty = true;
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
-      }
+      };
 
       document.addEventListener('mousemove', onMouseMove);
       document.addEventListener('mouseup', onMouseUp);
