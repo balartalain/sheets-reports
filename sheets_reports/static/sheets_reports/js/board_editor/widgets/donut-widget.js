@@ -2,7 +2,7 @@
   class DonutWidget extends BaseWidget {
     static type = 'donut';
     static palette = {
-      icon: '🍩',
+      icon: '<svg viewBox="0 0 20 20" width="1.25rem" height="1.25rem" class="inline-block"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="3" opacity="0.25"/><path d="M10 3A7 7 0 1 1 4.5 16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>',
       label: 'Gráfico de Dona',
       description: 'Proporciones por categoría',
       chipClass: 'bg-rose-50/60 border border-rose-200 hover:bg-rose-100/80',
