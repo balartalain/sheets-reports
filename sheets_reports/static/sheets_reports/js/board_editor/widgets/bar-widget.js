@@ -11,6 +11,12 @@
     };
     static defaults = { title: 'Gráfico de Barras', width: 'col-span-6', height: 300 };
 
+    static FIELD_HORIZONTAL = { key: 'horizontal', label: 'Horizontal', type: 'checkbox' };
+
+    static get drawerFields() {
+      return [...super.drawerFields, this.FIELD_HORIZONTAL];
+    }
+
     static mockData() {
       return {
         series: [{ name: 'Ejecutado', data: [14200, 19800, 8500, 11000, 6400, 15000] }],
@@ -18,8 +24,17 @@
       };
     }
 
+    constructor(raw) {
+      super(raw);
+      this.horizontal = raw.horizontal ?? false;
+    }
+
     buildElement() {
       return this.buildStandardCardElement();
+    }
+
+    getProperties() {
+      return { ...super.getProperties(), horizontal: this.horizontal };
     }
 
     renderContent(container, data) {
@@ -31,7 +46,7 @@
         colors: ['#2563eb'],
         series,
         xaxis: { categories, labels: { style: { fontSize: '11px' } } },
-        plotOptions: { bar: { borderRadius: 4, columnWidth: '55%' } },
+        plotOptions: { bar: { horizontal: this.horizontal, borderRadius: 4, columnWidth: '55%' } },
         grid: { padding: { bottom: 25 } },
       };
       this.renderApexChart(container, options);
