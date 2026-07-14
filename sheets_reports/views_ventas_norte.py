@@ -97,6 +97,30 @@ def kpi_resumen(df, request, widget):
 
     return JsonResponse(data)
 
+def tabla_ventas_detalle(df, request, widget):
+    """
+    Ejemplo: retorna el detalle de ventas fila por fila para un widget de tabla.
+    Retorna formato compatible con Tabulator: { columns: [{title, field}], rows: [{...}] }.
+    """
+    df = apply_active_filters(df, request, widget)
+    if df.empty:
+        columns = [
+            {"title": "Producto", "field": "Producto"},
+            {"title": "Vendedor", "field": "Vendedor"},
+            {"title": "Mes", "field": "Mes"},
+            {"title": "Ventas", "field": "Ventas"},
+        ]
+        rows = [
+            {"Producto": "Producto A", "Vendedor": "Cajero 1", "Mes": "Ene", "Ventas": 14200},
+            {"Producto": "Producto B", "Vendedor": "Cajero 2", "Mes": "Feb", "Ventas": 19800},
+        ]
+    else:
+        columns = [{"title": c, "field": c} for c in df.columns]
+        rows = df.to_dict("records")
+
+    return JsonResponse({"columns": columns, "rows": rows})
+
+
 def filtro_annos(df, request, widget):
     """
     Ejemplo: retorna lista de años únicos para un filtro, junto con el valor

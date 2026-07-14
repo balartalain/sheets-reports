@@ -39,6 +39,7 @@ class WidgetInstance(models.Model):
         ("line", "Gráfico de Líneas"),
         ("kpi", "Tarjeta KPI"),
         ("filter", "Filtro"),
+        ("table", "Tabla"),
     ]
 
     dashboard = models.ForeignKey(
