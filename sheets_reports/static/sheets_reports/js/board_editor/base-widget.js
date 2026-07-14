@@ -194,16 +194,34 @@
       this._chart.render();
     }
 
+    renderError(message) {
+      const container = this.getContentContainer();
+      if (!container) return;
+      if (this._chart) {
+        this._chart.destroy();
+        this._chart = null;
+      }
+      container.innerHTML = `
+        <div class="h-full w-full flex items-center justify-center text-center px-3">
+          <span class="text-xs text-red-600">${BaseWidget.escapeHTML(message || 'Error al cargar los datos')}</span>
+        </div>
+      `;
+    }
+
     async fetchAndRender() {
       if (!this.functionPath || this.id < 0) return;
       this.setLoading(true);
       try {
         const r = await fetch(`/api/widget/${this.id}/data/`);
-        const data = await r.json();
+        const data = await r.json().catch(() => null);
+        if (!r.ok) {
+          this.renderError(data && data.error ? data.error : `Error ${r.status} al cargar los datos`);
+          return;
+        }
         const container = this.getContentContainer();
         if (container) this.renderContent(container, data);
       } catch (e) {
-        // silencioso, igual que el comportamiento anterior
+        this.renderError('No se pudo conectar con el servidor');
       } finally {
         this.setLoading(false);
       }

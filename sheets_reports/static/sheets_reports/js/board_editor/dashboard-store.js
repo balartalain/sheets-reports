@@ -5,7 +5,7 @@ document.addEventListener('alpine:init', () => {
     editingType: null,
     dashboardId: window.DASHBOARD_ID,
     availableFunctions: [],
-    drawerDraft: { title: '', functionPath: '', width: 'col-span-6', height: 300, startCol: '', field: '' },
+    drawerDraft: { title: '', functionPath: '', width: 'col-span-6', height: 300, startCol: '' },
     _nextId: -1,
 
     get flatFunctions() {
@@ -104,14 +104,13 @@ document.addEventListener('alpine:init', () => {
         width: w.width,
         height: w.height,
         startCol: w.startCol || '',
-        field: w.field || '',
       };
     },
 
     closeDrawer() {
       this.editingId = null;
       this.editingType = null;
-      this.drawerDraft = { title: '', functionPath: '', width: 'col-span-6', height: 300, startCol: '', field: '' };
+      this.drawerDraft = { title: '', functionPath: '', width: 'col-span-6', height: 300, startCol: '' };
     },
 
     async saveDrawer() {

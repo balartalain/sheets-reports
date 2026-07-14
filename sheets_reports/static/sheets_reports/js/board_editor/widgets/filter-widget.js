@@ -18,12 +18,7 @@
 
     constructor(raw) {
       super(raw);
-      this.field = raw.field || '';
       this._selectedValue = '';
-    }
-
-    getProperties() {
-      return { ...super.getProperties(), field: this.field };
     }
 
     buildElement() {
@@ -53,6 +48,15 @@
       return el;
     }
 
+    renderError(message) {
+      const container = this.getContentContainer();
+      if (!container) return;
+      const text = message || 'Error al cargar los datos';
+      container.innerHTML = `
+        <span class="block w-full text-xs text-red-600 truncate" title="${BaseWidget.escapeHTML(text)}">${BaseWidget.escapeHTML(text)}</span>
+      `;
+    }
+
     renderContent(container, data) {
       let items, selected = null;
       if (data && !Array.isArray(data) && typeof data === 'object') {
@@ -71,15 +75,10 @@
         return `<option value="${BaseWidget.escapeHTML(String(value))}">${BaseWidget.escapeHTML(String(label))}</option>`;
       }).join('');
 
-      const labelHTML = this.field
-        ? `<span class="text-[11px] font-semibold text-ink/40 mr-2 whitespace-nowrap">${BaseWidget.escapeHTML(this.field)}</span>`
-        : '';
-
       container.innerHTML = `
         <div class="flex items-center w-full gap-2">
-          ${labelHTML}
           <select class="flex-1 min-w-0 text-sm border border-line rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-moss-500">
-            <option value="">Seleccione...</option>
+            <option value="">${BaseWidget.escapeHTML(this.title)}</option>
             ${optionsHTML}
           </select>
         </div>
@@ -94,18 +93,18 @@
     }
 
     async _onFilterChange(value) {
-      if (!this.field) return;
+      if (!this.title) return;
       const dashboardId = Alpine.store('dashboard').dashboardId;
       try {
         await fetch(`/api/dashboard/${dashboardId}/filters/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ field: this.field, value }),
+          body: JSON.stringify({ field: this.title, value }),
         });
       } catch (e) {
         // silencioso, igual que el resto de las llamadas fetch en este archivo
       }
-      window.dispatchEvent(new CustomEvent('dashboard:filters-changed', { detail: { field: this.field, value } }));
+      window.dispatchEvent(new CustomEvent('dashboard:filters-changed', { detail: { field: this.title, value } }));
     }
   }
 

@@ -103,6 +103,7 @@ def filtro_annos(df, request, widget):
     ya guardado en sesión (si existe), para que el widget lo preseleccione
     al cargar la página en vez de mostrarse vacío.
     """
+
     data = [2026, 2025, 2024]
     selected = get_active_filters(request, widget).get("Año")
 
