@@ -28,6 +28,7 @@
       label: 'Ancho',
       type: 'select',
       options: [
+        { value: 'col-span-2', label: '17%' },
         { value: 'col-span-3', label: '25%' },
         { value: 'col-span-4', label: '33%' },
         { value: 'col-span-6', label: '50%' },
@@ -56,6 +57,7 @@
         { value: 'col-start-8', label: 'Dejar 7 espacios' },
         { value: 'col-start-9', label: 'Dejar 8 espacios' },
         { value: 'col-start-10', label: 'Dejar 9 espacios' },
+        { value: 'col-start-11', label: 'Dejar 10 espacios' },
       ],
     };
 
