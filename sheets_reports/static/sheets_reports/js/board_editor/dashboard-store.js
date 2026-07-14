@@ -5,7 +5,7 @@ document.addEventListener('alpine:init', () => {
     editingType: null,
     dashboardId: window.DASHBOARD_ID,
     availableFunctions: [],
-    drawerDraft: { title: '', functionPath: '', width: 'col-span-6', height: 300, startCol: '' },
+    drawerDraft: {},
     _nextId: -1,
 
     get flatFunctions() {
@@ -93,24 +93,27 @@ document.addEventListener('alpine:init', () => {
       this.widgets.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     },
 
+    get drawerFields() {
+      // No debe colapsar a []: eso destruiría/recrearía el <select> de
+      // functionPath (y sus <option>) en cada apertura del drawer.
+      const WidgetClass = this.editingType ? WidgetRegistry.get(this.editingType) : BaseWidget;
+      return WidgetClass.drawerFields;
+    },
+
     openDrawer(id) {
       const w = this.widgets.find(w => w.id === id);
       if (!w) return;
       this.editingId = id;
       this.editingType = w.chart_type;
-      this.drawerDraft = {
-        title: w.title,
-        functionPath: w.functionPath || '',
-        width: w.width,
-        height: w.height,
-        startCol: w.startCol || '',
-      };
+      const draft = {};
+      for (const field of this.drawerFields) draft[field.key] = w[field.key];
+      this.drawerDraft = draft;
     },
 
     closeDrawer() {
       this.editingId = null;
       this.editingType = null;
-      this.drawerDraft = { title: '', functionPath: '', width: 'col-span-6', height: 300, startCol: '' };
+      this.drawerDraft = {};
     },
 
     async saveDrawer() {

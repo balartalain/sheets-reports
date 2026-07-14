@@ -10,7 +10,11 @@
       titleClass: 'text-amber-950',
       descClass: 'text-amber-700/80',
     };
-    static defaults = { title: 'Filtro', width: 'col-span-4', height: 48 };
+    static defaults = { title: 'Filtro', width: 'col-span-4' };
+
+    static get drawerFields() {
+      return super.drawerFields.filter(field => field.key !== 'height');
+    }
 
     static mockData() {
       return [2021, 2022, 2023];
@@ -24,7 +28,7 @@
     buildElement() {
       const el = document.createElement('div');
       el.className = `${this.width}${this.startCol ? ' ' + this.startCol : ''} relative flex items-center group`;
-      el.style.height = this.height + 'px';
+      //el.style.height = this.height + 'px';
       el.style.setProperty('--ghost-span', this._ghostSpanFromWidth());
       el.dataset.widgetId = this.id;
       el.dataset.type = this.chart_type;

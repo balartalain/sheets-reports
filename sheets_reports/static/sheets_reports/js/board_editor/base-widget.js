@@ -12,6 +12,57 @@
     static defaults = { title: 'Widget', width: 'col-span-6', height: 300 };
     static minHeight = 150;
 
+    static FIELD_TITLE = { key: 'title', label: 'Título', type: 'text' };
+
+    static FIELD_FUNCTION_PATH = {
+      key: 'functionPath',
+      label: 'Función del servidor',
+      type: 'select',
+      optionsSource: 'flatFunctions',
+      optionValueKey: 'path',
+      emptyOption: { value: '', label: '— Sin asignar —' },
+    };
+
+    static FIELD_WIDTH = {
+      key: 'width',
+      label: 'Ancho',
+      type: 'select',
+      options: [
+        { value: 'col-span-3', label: '25%' },
+        { value: 'col-span-4', label: '33%' },
+        { value: 'col-span-6', label: '50%' },
+        { value: 'col-span-8', label: '66%' },
+        { value: 'col-span-12', label: '100%' },
+      ],
+    };
+
+    static get FIELD_HEIGHT() {
+      return { key: 'height', label: 'Alto (px)', type: 'number', min: this.minHeight, step: 10 };
+    }
+
+    static FIELD_START_COL = {
+      key: 'startCol',
+      label: 'Posición en fila',
+      type: 'select',
+      options: [
+        { value: '', label: 'Fluido' },
+        { value: 'col-start-1', label: 'Al inicio' },
+        { value: 'col-start-2', label: 'Dejar 1 espacio' },
+        { value: 'col-start-3', label: 'Dejar 2 espacios' },
+        { value: 'col-start-4', label: 'Dejar 3 espacios' },
+        { value: 'col-start-5', label: 'Dejar 4 espacio' },
+        { value: 'col-start-6', label: 'Dejar 5 espacios' },
+        { value: 'col-start-7', label: 'Dejar 6 espacios' },
+        { value: 'col-start-8', label: 'Dejar 7 espacios' },
+        { value: 'col-start-9', label: 'Dejar 8 espacios' },
+        { value: 'col-start-10', label: 'Dejar 9 espacios' },
+      ],
+    };
+
+    static get drawerFields() {
+      return [this.FIELD_TITLE, this.FIELD_FUNCTION_PATH, this.FIELD_WIDTH, this.FIELD_HEIGHT, this.FIELD_START_COL];
+    }
+
     static _parseSpan(widthClass) {
       const m = /col-span-(\d+)/.exec(widthClass);
       return m ? parseInt(m[1], 10) : 6;
@@ -209,7 +260,12 @@
     }
 
     async fetchAndRender() {
-      if (!this.functionPath || this.id < 0) return;
+      if (this.id < 0) return;
+      if (!this.functionPath) {
+        const container = this.getContentContainer();
+        if (container) this.renderContent(container);
+        return;
+      }
       this.setLoading(true);
       try {
         const r = await fetch(`/api/widget/${this.id}/data/`);

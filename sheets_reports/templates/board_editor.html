@@ -76,55 +76,41 @@
     </div>
 
     <div class="space-y-4">
-      <div>
-        <label class="block text-xs font-semibold text-ink/70 mb-1">Título</label>
-        <input type="text" x-model="$store.dashboard.drawerDraft.title" class="w-full text-sm border border-line rounded-lg px-3 py-2 focus:outline-none focus:border-moss-500">
-      </div>
+      <template x-for="field in $store.dashboard.drawerFields" :key="field.key">
+        <div>
+          <label class="block text-xs font-semibold text-ink/70 mb-1" x-text="field.label"></label>
 
-      <div>
-        <label class="block text-xs font-semibold text-ink/70 mb-1">Función del servidor</label>
-        <select x-model="$store.dashboard.drawerDraft.functionPath"
-                x-init="$watch('$store.dashboard.availableFunctions', () => $el.dispatchEvent(new Event('change')))"
-                class="w-full text-sm border border-line rounded-lg px-3 py-2 focus:outline-none focus:border-moss-500">
-          <option value="">— Sin asignar —</option>
-          <template x-for="fn in $store.dashboard.flatFunctions" :key="fn.path">
-            <option x-bind:value="fn.path" x-text="fn.label"></option>
+          <template x-if="field.type === 'text'">
+            <input type="text" x-model="$store.dashboard.drawerDraft[field.key]"
+                   class="w-full text-sm border border-line rounded-lg px-3 py-2 focus:outline-none focus:border-moss-500">
           </template>
-        </select>
-      </div>
 
-      <div>
-        <label class="block text-xs font-semibold text-ink/70 mb-1">Ancho</label>
-        <select x-model="$store.dashboard.drawerDraft.width" class="w-full text-sm border border-line rounded-lg px-3 py-2 focus:outline-none focus:border-moss-500">
-          <option value="col-span-3">25%</option>
-          <option value="col-span-4">33%</option>
-          <option value="col-span-6">50%</option>
-          <option value="col-span-8">66%</option>
-          <option value="col-span-12">100%</option>
-        </select>
-      </div>
+          <template x-if="field.type === 'number'">
+            <input type="number" x-model.number="$store.dashboard.drawerDraft[field.key]"
+                   x-bind:min="field.min" x-bind:step="field.step || 1"
+                   class="w-full text-sm border border-line rounded-lg px-3 py-2 focus:outline-none focus:border-moss-500">
+          </template>
 
-      <div>
-        <label class="block text-xs font-semibold text-ink/70 mb-1">Alto (px)</label>
-        <input type="number" x-model.number="$store.dashboard.drawerDraft.height" class="w-full text-sm border border-line rounded-lg px-3 py-2 focus:outline-none focus:border-moss-500" min="150" step="10">
-      </div>
+          <template x-if="field.type === 'select'">
+            <select x-model="$store.dashboard.drawerDraft[field.key]"
+                    x-init="field.optionsSource && $watch('$store.dashboard.availableFunctions', () => $el.dispatchEvent(new Event('change')))"
+                    class="w-full text-sm border border-line rounded-lg px-3 py-2 focus:outline-none focus:border-moss-500">
+              <template x-if="field.emptyOption">
+                <option x-bind:value="field.emptyOption.value" x-text="field.emptyOption.label"></option>
+              </template>
+              <template x-for="opt in (field.optionsSource ? $store.dashboard[field.optionsSource] : field.options)"
+                        :key="field.optionsSource ? opt[field.optionValueKey || 'value'] : opt.value">
+                <option x-bind:value="opt[field.optionValueKey || 'value']" x-text="opt[field.optionLabelKey || 'label']"></option>
+              </template>
+            </select>
+          </template>
 
-      <div>
-        <label class="block text-xs font-semibold text-ink/70 mb-1">Posición en fila</label>
-        <select x-model="$store.dashboard.drawerDraft.startCol" class="w-full text-sm border border-line rounded-lg px-3 py-2 focus:outline-none focus:border-moss-500">
-          <option value="">Fluido</option>
-          <option value="col-start-1">Al inicio</option>
-          <option value="col-start-2">Dejar 1 espacio</option>
-          <option value="col-start-3">Dejar 2 espacios</option>
-          <option value="col-start-4">Dejar 3 espacios</option>
-          <option value="col-start-5">Dejar 4 espacio</option>
-          <option value="col-start-6">Dejar 5 espacios</option>
-          <option value="col-start-7">Dejar 6 espacios</option>
-          <option value="col-start-8">Dejar 7 espacios</option>
-          <option value="col-start-9">Dejar 8 espacios</option>
-          <option value="col-start-10">Dejar 9 espacios</option>
-        </select>
-      </div>
+          <template x-if="field.type === 'checkbox'">
+            <input type="checkbox" x-model="$store.dashboard.drawerDraft[field.key]"
+                   class="h-4 w-4 rounded border-line text-moss-600 focus:ring-moss-500">
+          </template>
+        </div>
+      </template>
     </div>
 
     <div class="pt-4 border-t border-line mt-6 flex space-x-2">
