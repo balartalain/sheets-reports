@@ -66,7 +66,7 @@ def ventas_por_vendedor(df, request, widget):
         data_values = [32000, 28500, 22400, 19100]
     else:
         grouped = df.groupby("Vendedor")["Ventas"].sum()
-        categories = grouped.index.tolist()
+        categories = [name[:20] + '...' if len(name) > 20 else name for name in grouped.index.tolist()]
         data_values = grouped.tolist()
 
     return JsonResponse({
