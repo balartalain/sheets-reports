@@ -1,9 +1,17 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Report IA — Tablero{% endblock %}
+{% block title %}{{ dashboard.title }} — Report IA{% endblock %}
 
-{% block header %}{% endblock %}
+{% block header %}
+<header class="border-b border-line bg-white">
+  <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <span class="font-display font-semibold text-lg tracking-tight">{{ dashboard.title }}</span>
+    </div>
+  </div>
+</header>
+{% endblock %}
 
 {% block content %}
 
