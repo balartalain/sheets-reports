@@ -4,7 +4,6 @@ import logging
 from django.http import JsonResponse
 
 from sheets_reports.models import WidgetInstance
-from sheets_reports.utils.cache import get_cached_df
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +67,11 @@ def dispatch_widget(request, widget_id: int) -> JsonResponse:
     Obtiene el widget, importa el módulo desde widget.function_path,
     y ejecuta la función correspondiente.
 
+    Convención: cada función recibe (request, widget) y es responsable de cargar
+    su(s) propio(s) DataFrame llamando a `get_cached_df(widget.dashboard, sheet_name)`
+    (sheet_name=None usa la primera hoja). Así una misma función puede leer más de
+    una pestaña del spreadsheet del tablero y cruzarlas entre sí.
+
     Convención para filtros: cada función puede aplicar los filtros activos
     de su tablero al DataFrame con `apply_active_filters(df, request, widget)`
     (o leerlos directamente con `get_active_filters(request, widget)`).
@@ -84,13 +88,7 @@ def dispatch_widget(request, widget_id: int) -> JsonResponse:
     func = getattr(module, func_name)
 
     try:
-        df = get_cached_df(widget.dashboard)
-    except Exception:
-        logger.exception("Error al obtener datos de Google Sheets")
-        return JsonResponse({"error": "Error al obtener datos de Google Sheets"}, status=500)
-
-    try:
-        return func(df, request, widget)
+        return func(request, widget)
     except Exception as e:
         logger.exception("Error al ejecutar %s", widget.function_path)
         return JsonResponse({"error": str(e)}, status=500)

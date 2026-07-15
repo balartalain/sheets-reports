@@ -1,16 +1,22 @@
 """
 Vistas de datos para el tablero "Ventas Región Norte".
-Cada función recibe (df, request, widget) y retorna un JsonResponse.
+Cada función recibe (request, widget) y retorna un JsonResponse. Cada una es
+responsable de cargar su(s) propio(s) DataFrame con
+`get_cached_df(widget.dashboard, sheet_name)` (sheet_name=None usa la primera
+hoja), lo que permite cruzar datos de varias pestañas del mismo spreadsheet
+cuando haga falta.
 """
 from django.http import JsonResponse
 
+from sheets_reports.utils.cache import get_cached_df
 from sheets_reports.utils.widget_dispatcher import apply_active_filters, get_active_filters
 
-def ventas_por_producto(df, request, widget):
+def ventas_por_producto(request, widget):
     """
     Ejemplo: retorna ventas agregadas por producto.
     Retorna formato compatible con ApexCharts: { series: [{ name, data }], categories: [...] }.
     """
+    df = get_cached_df(widget.dashboard, "Ventas")
     df = apply_active_filters(df, request, widget)
     if df.empty:
         categories = ["Producto A", "Producto B", "Producto C"]
@@ -31,13 +37,14 @@ _MESES_ORDEN = {
 }
 
 
-def total_ventas(df, request, widget):
+def total_ventas(request, widget):
     """
     Ejemplo: retorna el total de ventas por mes.
     Mock: si el DataFrame está vacío o no tiene las columnas esperadas,
     devuelve datos de muestra.
     Retorna formato compatible con ApexCharts: { series: [{ name, data }], categories: [...] }.
     """
+    df = get_cached_df(widget.dashboard, "Ventas")
     df = apply_active_filters(df, request, widget)
     if df.empty:
         categories = ["Ene", "Feb", "Mar", "Abr", "May", "Jun"]
@@ -55,11 +62,12 @@ def total_ventas(df, request, widget):
     })
 
 
-def ventas_por_vendedor(df, request, widget):
+def ventas_por_vendedor(request, widget):
     """
     Ejemplo: retorna ventas agregadas por vendedor.
     Retorna formato compatible con ApexCharts: { series: [{ name, data }], categories: [...] }.
     """
+    df = get_cached_df(widget.dashboard, "Ventas")
     df = apply_active_filters(df, request, widget)
     if df.empty:
         categories = ["Cajero 1", "Cajero 2", "Cajero 3"]
@@ -75,10 +83,11 @@ def ventas_por_vendedor(df, request, widget):
     })
 
 
-def kpi_resumen(df, request, widget):
+def kpi_resumen(request, widget):
     """
     Ejemplo: retorna indicadores clave del tablero.
     """
+    df = get_cached_df(widget.dashboard, "Ventas")
     df = apply_active_filters(df, request, widget)
     if df.empty:
         data = {
@@ -97,11 +106,12 @@ def kpi_resumen(df, request, widget):
 
     return JsonResponse(data)
 
-def tabla_ventas_detalle(df, request, widget):
+def tabla_ventas_detalle(request, widget):
     """
     Ejemplo: retorna el detalle de ventas fila por fila para un widget de tabla.
     Retorna formato compatible con Tabulator: { columns: [{title, field}], rows: [{...}] }.
     """
+    df = get_cached_df(widget.dashboard, "Ventas")
     df = apply_active_filters(df, request, widget)
     if df.empty:
         columns = [
@@ -121,7 +131,7 @@ def tabla_ventas_detalle(df, request, widget):
     return JsonResponse({"columns": columns, "rows": rows})
 
 
-def filtro_annos(df, request, widget):
+def filtro_annos(request, widget):
     """
     Ejemplo: retorna lista de años únicos para un filtro, junto con el valor
     ya guardado en sesión (si existe), para que el widget lo preseleccione
