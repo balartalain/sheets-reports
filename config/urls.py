@@ -23,8 +23,8 @@ from sheets_reports import views_dashboard
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', views.home, name='home'),
-    path('tableros/<int:board_id>/', views.board_editor, name='board_editor'),
-    path('tableros/<int:board_id>/shared/', views.board_view, name='board_view'),
+    path('tableros/<slug:board_slug>/', views.board_editor, name='board_editor'),
+    path('tableros/<slug:board_slug>/shared/', views.board_view, name='board_view'),
     path('api/dashboards/', views_dashboard.dashboard_list, name='dashboard_list'),
     path('api/dashboards/<int:dashboard_id>/', views_dashboard.dashboard_detail, name='dashboard_detail'),
     path('api/dashboard/<int:dashboard_id>/widgets/', views.dashboard_widgets, name='dashboard_widgets'),

@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
@@ -16,13 +16,14 @@ def home(request):
     return render(request, 'home.html')
 
 
-def board_editor(request, board_id):
-    return render(request, 'board_editor.html', {'board_id': board_id})
+def board_editor(request, board_slug):
+    dashboard = get_object_or_404(Dashboard, slug=board_slug)
+    return render(request, 'board_editor.html', {'board_id': dashboard.id, 'dashboard': dashboard})
 
 
-def board_view(request, board_id):
-    dashboard = Dashboard.objects.get(id=board_id)
-    return render(request, 'board_view.html', {'board_id': board_id, 'dashboard': dashboard})
+def board_view(request, board_slug):
+    dashboard = get_object_or_404(Dashboard, slug=board_slug)
+    return render(request, 'board_view.html', {'board_id': dashboard.id, 'dashboard': dashboard})
 
 
 def widget_data(request, widget_id):

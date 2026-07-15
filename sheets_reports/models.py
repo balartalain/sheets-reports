@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.utils.text import slugify
 
 
 class Dashboard(models.Model):
@@ -11,6 +12,13 @@ class Dashboard(models.Model):
     title = models.CharField(
         max_length=255,
         help_text="Título descriptivo del tablero.",
+    )
+    slug = models.SlugField(
+        max_length=255,
+        unique=True,
+        blank=True,
+        null=True,
+        help_text="Identificador único usado en la URL del tablero, generado a partir del título.",
     )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -30,6 +38,17 @@ class Dashboard(models.Model):
 
     def __str__(self):
         return self.title
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base_slug = slugify(self.title) or "tablero"
+            slug = base_slug
+            i = 2
+            while Dashboard.objects.exclude(pk=self.pk).filter(slug=slug).exists():
+                slug = f"{base_slug}-{i}"
+                i += 1
+            self.slug = slug
+        super().save(*args, **kwargs)
 
 
 class WidgetInstance(models.Model):

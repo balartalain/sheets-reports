@@ -38,6 +38,7 @@ def _serialize(dashboard):
     return {
         "id": dashboard.id,
         "title": dashboard.title,
+        "slug": dashboard.slug,
         "source_url": dashboard.source_url,
         "sheetName": _sheet_name(dashboard.source_url),
         "cardCount": dashboard.widgets.count(),
