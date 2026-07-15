@@ -4,6 +4,12 @@
 
 {% block content %}
 
+<script>
+  window.URLS = {
+    boardEditor: "{% url 'board_editor' board_slug='__SLUG__' %}",
+  };
+</script>
+
 <div x-data="homeApp()" x-init="init()">
 
   <main class="max-w-7xl mx-auto px-6 py-10">
@@ -25,7 +31,7 @@
 
       <template x-for="d in filteredDashboards" :key="d.id">
         <div class="bg-white border border-line rounded-xl p-5 hover:border-moss-300 hover:shadow-sm transition group relative">
-          <a :href="'/tableros/' + d.slug + '/'" class="block">
+          <a :href="window.URLS.boardEditor.replace('__SLUG__', d.slug)" class="block">
             <div class="flex items-start justify-between mb-4">
               <div class="w-9 h-9 rounded-lg bg-moss-50 flex items-center justify-center">
                 <i class="ti ti-layout-dashboard text-moss-600 text-lg" aria-hidden="true"></i>

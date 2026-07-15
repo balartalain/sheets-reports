@@ -70,7 +70,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   document.getElementById('share-btn').addEventListener('click', () => {
-    const url = `${window.location.origin}/tableros/${window.DASHBOARD_SLUG}/shared/`;
+    const url = `${window.location.origin}${window.SHARE_PATH}`;
     window.prompt('Enlace para compartir (solo lectura):', url);
   });
 });
