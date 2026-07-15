@@ -1,0 +1,143 @@
+/* ============================================================
+   Tabulator — reskin para que combine con las tarjetas del tablero
+   Cárgalo DESPUÉS del CSS oficial de Tabulator (tabulator.min.css /
+   tabulator_simple.min.css) para que estas reglas ganen la cascada.
+   ============================================================ */
+
+:root {
+  --tb-ink: #14171F;
+  --tb-ink-muted: #8A8F98;
+  --tb-line: #E3E5DE;
+  --tb-paper: #F7F8F4;
+  --tb-accent: #1F8A5F;
+  --tb-accent-hover: #166B49;
+}
+
+/* Contenedor general: sin borde/sombra propios — ya vive dentro de tu card */
+.tabulator {
+  border: none;
+  background: transparent;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: var(--tb-ink);
+}
+
+/* ---------- Encabezado ---------- */
+.tabulator .tabulator-header {
+  background: #fff;
+  border-bottom: 1px solid var(--tb-line);
+  font-weight: 600;
+}
+
+.tabulator .tabulator-header .tabulator-col {
+  background: #fff;
+  border-right: none;
+  padding: 8px 10px;
+}
+
+.tabulator .tabulator-header .tabulator-col-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tb-ink-muted);
+  text-transform: none;
+}
+
+/* Flechitas de orden — apagadas por defecto, visibles al hover/activo */
+.tabulator .tabulator-col-sorter {
+  color: #C7C9C3;
+}
+.tabulator .tabulator-col.tabulator-sortable:hover {
+  background: var(--tb-paper);
+}
+.tabulator .tabulator-col-sorter.tabulator-col-sorter-element[aria-sort="ascending"],
+.tabulator .tabulator-col-sorter.tabulator-col-sorter-element[aria-sort="descending"] {
+  color: var(--tb-accent);
+}
+
+/* ---------- Filas ---------- */
+.tabulator .tabulator-row {
+  background: #fff;
+  border-bottom: 1px solid var(--tb-line);
+  min-height: 38px;
+}
+
+.tabulator .tabulator-row.tabulator-row-even {
+  background: #fff; /* sin cebra: look plano consistente con el resto */
+}
+
+.tabulator .tabulator-row:hover {
+  background: var(--tb-paper);
+}
+
+.tabulator .tabulator-row .tabulator-cell {
+  padding: 8px 10px;
+  border-right: none;
+  font-size: 13px;
+  color: var(--tb-ink);
+}
+
+.tabulator .tabulator-row.tabulator-selected {
+  background: #EAF3EC;
+}
+
+/* ---------- Footer / paginación ---------- */
+.tabulator .tabulator-footer {
+  background: #fff;
+  border-top: 1px solid var(--tb-line);
+  padding: 8px 10px;
+}
+
+.tabulator .tabulator-footer .tabulator-paginator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tabulator .tabulator-footer label {
+  font-size: 12px;
+  color: var(--tb-ink-muted);
+}
+
+/* Botones First/Prev/Next/Last y números de página — reseteo total del look "navegador" */
+.tabulator .tabulator-page {
+  background: #fff;
+  border: 1px solid var(--tb-line);
+  border-radius: 6px;
+  color: var(--tb-ink);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 9px;
+  margin: 0;
+  transition: background-color .12s, color .12s, border-color .12s;
+}
+
+.tabulator .tabulator-page:hover:not(:disabled) {
+  background: var(--tb-paper);
+  border-color: var(--tb-line);
+}
+
+.tabulator .tabulator-page.active {
+  background: var(--tb-accent);
+  border-color: var(--tb-accent);
+  color: #fff;
+}
+
+.tabulator .tabulator-page:disabled {
+  color: #C7C9C3;
+  cursor: not-allowed;
+}
+
+/* Selector de "cantidad por página", si lo usas */
+.tabulator .tabulator-footer .tabulator-page-size {
+  border: 1px solid var(--tb-line);
+  border-radius: 6px;
+  font-size: 12px;
+  padding: 3px 6px;
+  color: var(--tb-ink);
+}
+
+/* Placeholder de "sin datos" */
+.tabulator .tabulator-placeholder {
+  color: var(--tb-ink-muted);
+  font-size: 13px;
+}
