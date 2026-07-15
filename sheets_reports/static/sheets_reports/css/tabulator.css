@@ -5,12 +5,12 @@
    ============================================================ */
 
 :root {
-  --tb-ink: #14171F;
+  --tb-ink: var(--color-ink);
   --tb-ink-muted: #8A8F98;
-  --tb-line: #E3E5DE;
-  --tb-paper: #F7F8F4;
-  --tb-accent: #1F8A5F;
-  --tb-accent-hover: #166B49;
+  --tb-line: var(--color-line);
+  --tb-paper: var(--color-paper);
+  --tb-accent: var(--color-moss-500);
+  --tb-accent-hover: var(--color-moss-600);
 }
 
 /* Contenedor general: sin borde/sombra propios — ya vive dentro de tu card */

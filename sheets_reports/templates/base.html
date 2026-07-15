@@ -14,11 +14,17 @@
     theme: {
       extend: {
         colors: {
-          ink: '#14171F',
-          paper: '#F7F8F4',
-          line: '#E3E5DE',
-          moss: { 50:'#EAF3EC', 100:'#CFE6D6', 300:'#6FAE86', 500:'#1F8A5F', 600:'#166B49', 700:'#0F5138' },
-          clay: { 50:'#FBF3EA', 300:'#E0AF77', 500:'#B5793D', 600:'#8F5E2E' },
+          ink: 'var(--color-ink)',
+          paper: 'var(--color-paper)',
+          line: 'var(--color-line)',
+          moss: {
+            50: 'var(--color-moss-50)', 100: 'var(--color-moss-100)', 300: 'var(--color-moss-300)',
+            500: 'var(--color-moss-500)', 600: 'var(--color-moss-600)', 700: 'var(--color-moss-700)',
+          },
+          clay: {
+            50: 'var(--color-clay-50)', 300: 'var(--color-clay-300)',
+            500: 'var(--color-clay-500)', 600: 'var(--color-clay-600)',
+          },
         },
         fontFamily: {
           display: ['"Space Grotesk"', 'sans-serif'],
@@ -33,6 +39,21 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
 
 <style>
+  :root {
+    --color-ink: #14171F;
+    --color-paper: #F7F8F4;
+    --color-line: #E3E5DE;
+    --color-moss-50: #EAF3EC;
+    --color-moss-100: #CFE6D6;
+    --color-moss-300: #6FAE86;
+    --color-moss-500: #1F8A5F;
+    --color-moss-600: #166B49;
+    --color-moss-700: #0F5138;
+    --color-clay-50: #FBF3EA;
+    --color-clay-300: #E0AF77;
+    --color-clay-500: #B5793D;
+    --color-clay-600: #8F5E2E;
+  }
   body { font-family: 'Inter', sans-serif; }
   .font-display { font-family: 'Space Grotesk', sans-serif; }
   .font-mono { font-family: 'JetBrains Mono', monospace; }
