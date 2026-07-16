@@ -15,7 +15,7 @@ def get_cached_df(dashboard, sheet_name: str | None = None) -> pd.DataFrame:
     (sheet_name=None usa la primera hoja), y puede llamarla más de una vez para
     cruzar datos de varias pestañas del mismo spreadsheet.
     """
-    cache_key = f"sheet_df_{dashboard.id}_{sheet_name or '__default__'}"
+    cache_key = f"sheet_df_{dashboard.id}_{sheet_name.replace(' ', '_') or '__default__'}"
 
     df = cache.get(cache_key)
     if df is not None:

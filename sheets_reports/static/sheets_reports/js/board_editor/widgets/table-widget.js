@@ -12,9 +12,14 @@
     static defaults = { title: 'Tabla', width: 'col-span-6', height: 300 };
 
     static FIELD_PAGE_SIZE = { key: 'pageSize', label: 'Filas por página', type: 'number', min: 5, step: 5 };
+    static FIELD_SHOW_PAGINATION = { key: 'showPagination', label: 'Mostrar paginación', type: 'checkbox' };
 
     static get drawerFields() {
-      return [...super.drawerFields, this.FIELD_PAGE_SIZE];
+      return [...super.drawerFields,
+        this.FIELD_PAGE_SIZE,
+        this.FIELD_SHOW_PAGINATION,
+        { key: 'boldLastRow', label: 'Resaltar última fila', type: 'checkbox' }
+      ];
     }
 
     static mockData() {
@@ -35,10 +40,12 @@
     constructor(raw) {
       super(raw);
       this.pageSize = raw.pageSize ?? 10;
+      this.showPagination = raw.showPagination ?? true;
+      this.boldLastRow = raw.boldLastRow ?? false;
     }
 
     getProperties() {
-      return { ...super.getProperties(), pageSize: this.pageSize };
+      return { ...super.getProperties(), pageSize: this.pageSize, showPagination: this.showPagination, boldLastRow: this.boldLastRow };
     }
 
     buildElement() {
@@ -57,9 +64,24 @@
         data: payload.rows || [],
         columns: payload.columns || [],
         layout: 'fitColumns',
-        pagination: true,
+        pagination: this.showPagination,
         paginationSize: this.pageSize,
         height: '100%',
+        rowFormatter: (row)=> {
+          // Quitamos la clase por defecto para evitar residuos al alternar el checkbox
+          row.getElement().classList.remove("tabulator-row-bold");
+
+          // Si la opción está activa y es la última fila del set de datos actual
+          if (this.boldLastRow) {
+            const todasLasFilas = row.getTable().getRows("active"); // Obtiene las filas activas/filtradas
+            const ultimaFila = todasLasFilas[todasLasFilas.length - 1];
+
+            // Si la fila actual que se está dibujando es idéntica a la última fila
+            if (ultimaFila && row.getPosition() === ultimaFila.getPosition()) {
+              row.getElement().classList.add("tabulator-row-bold");
+            }
+          }
+        }
       });
     }
 

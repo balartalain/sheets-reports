@@ -9,7 +9,7 @@
   --tb-ink-muted: #8A8F98;
   --tb-line: var(--color-line);
   --tb-paper: var(--color-paper);
-  --tb-accent: var(--color-moss-500);
+  --tb-accent: var(--color-header);
   --tb-accent-hover: var(--color-moss-600);
 }
 
@@ -41,7 +41,10 @@
   color: var(--tb-ink-muted);
   text-transform: none;
 }
-
+.tabulator-row-bold {
+  font-weight: bold;
+  color: #2c3e50; /* Opcional: para darle un toque visual */
+}
 /* Flechitas de orden — apagadas por defecto, visibles al hover/activo */
 .tabulator .tabulator-col-sorter {
   color: #C7C9C3;
@@ -119,7 +122,7 @@
 .tabulator .tabulator-page.active {
   background: var(--tb-accent);
   border-color: var(--tb-accent);
-  color: #fff;
+  color: #fff !important;
 }
 
 .tabulator .tabulator-page:disabled {
