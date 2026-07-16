@@ -356,6 +356,46 @@ def distribucion_nivel_satisfaccion(request, widget):
         "categories": categorias,
     })
 
+def resumen_nivel_aprendizaje(request, widget):
+    """
+    Retorna, por Categoria, el conteo y % de 'Alto' y
+    'Bajo', mas el total de respuestas.
+    Retorna formato compatible con Tabulator: { columns: [{title, field}], rows: [{...}] }.
+    """
+    df = get_cached_df(widget.dashboard, "Respuestas Indique el nivel de aprendizaje que usted considera ha obtenido con el uso de las siguien")
+    df = _add_nivel_column(df)
+    df = apply_active_filters(df, request, widget)
+
+    columns = [
+        {"title": "Categoría", "field": "Categoría"},
+        {"title": "Alto", "field": "Alto"},
+        {"title": "%", "field": "PctAlto"},
+        {"title": "Bajo", "field": "Bajo"},
+        {"title": "%", "field": "PctBajo"},
+        {"title": "Total", "field": "Total"},
+    ]
+
+    if "Categoría" not in df.columns or "Respuesta" not in df.columns:
+        rows = []
+    else:
+        categorias = sorted(df["Categoría"].unique())
+        rows = []
+        for cat in categorias:
+            sub = df[df["Categoría"] == cat]
+            alto = int((sub["Respuesta"] == "Alto").sum())
+            bajo = int((sub["Respuesta"] == "Bajo").sum())
+            total = alto + bajo
+            def pct(n): return f"{round(n / total * 100)}%" if total else "0%"
+            rows.append({
+                "Categoría": cat,
+                "Alto": alto,
+                "PctAlto": pct(alto),
+                "Bajo": bajo,
+                "PctBajo": pct(bajo),
+                "Total": total,
+            })
+
+    return JsonResponse({"columns": columns, "rows": rows})
 
 def filtro_recintos(request, widget):
     """
