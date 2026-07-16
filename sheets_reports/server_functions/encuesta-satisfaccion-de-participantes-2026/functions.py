@@ -324,6 +324,39 @@ def resumen_nivel_satisfaccion(request, widget):
     return JsonResponse({"columns": columns, "rows": rows})
 
 
+def distribucion_nivel_satisfaccion(request, widget):
+    """
+    Retorna, por Categoria, el % de 'Completamente satisfecho' y 'Satisfecho'.
+    Retorna formato compatible con ApexCharts (grafico de barras apiladas):
+    { series: [{ name, data }], categories: [...] }.
+    """
+    df = get_cached_df(widget.dashboard, "Respuestas Indique su nivel de satisfacción con los siguientes aspectos")
+    df = _add_nivel_column(df)
+    df = apply_active_filters(df, request, widget)
+
+    if "Categoría" not in df.columns or "Respuesta" not in df.columns:
+        return JsonResponse({"series": [], "categories": []})
+
+    categorias = sorted(df["Categoría"].unique())
+    pct_completo = []
+    pct_satisfecho = []
+    for cat in categorias:
+        sub = df[df["Categoría"] == cat]
+        completamente = int((sub["Respuesta"] == "Completamente satisfecho").sum())
+        satisfecho = int((sub["Respuesta"] == "Satisfecho").sum())
+        total = completamente + satisfecho
+        pct_completo.append(round(completamente / total * 100) if total else 0)
+        pct_satisfecho.append(round(satisfecho / total * 100) if total else 0)
+
+    return JsonResponse({
+        "series": [
+            {"name": "Completamente Satisfecho", "data": pct_completo},
+            {"name": "Satisfecho", "data": pct_satisfecho},
+        ],
+        "categories": categorias,
+    })
+
+
 def filtro_recintos(request, widget):
     """
     Retorna lista de recintos únicos para un filtro, junto con el valor ya

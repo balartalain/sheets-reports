@@ -28,6 +28,7 @@
       const labels = payload.categories || [];
       const options = {
         chart: { type: 'donut', height: '90%', width: '100%', fontFamily: 'inherit', toolbar: { show: false } },
+        colors: ['#2563eb', '#f5a623', '#1F8A5F', '#60a5fa', '#93c5fd', '#bfdbfe', '#dbeafe'],
         series,
         labels,
         legend: { position: 'bottom', fontSize: '11px' },

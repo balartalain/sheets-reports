@@ -43,11 +43,20 @@
       const categories = payload.categories || [];
       const options = {
         chart: { type: 'bar', height: '100%', width: '100%', fontFamily: 'inherit', toolbar: { show: false } },
-        colors: ['#2563eb'],
+        colors: ['#2563eb', '#f5a623', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#dbeafe'],
         series,
         xaxis: { categories, labels: { style: { fontSize: '11px' } } },
-        plotOptions: { bar: { horizontal: this.horizontal, borderRadius: 4, borderRadiusApplication: 'end', columnWidth: '55%' } },
+        plotOptions: { bar: { horizontal: this.horizontal, borderRadius: 4, borderRadiusApplication: 'end', columnWidth: '50%' } },
         grid: { padding: { bottom: 25 } },
+        stroke: {
+          show: true,
+          width: 1,
+          colors: ['#fff'],
+        },
+        tooltip: {
+          shared: true,
+          intersect: false,
+        },
       };
       this.renderApexChart(container, options);
     }
