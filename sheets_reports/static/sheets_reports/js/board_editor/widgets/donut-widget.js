@@ -32,6 +32,16 @@
         series,
         labels,
         legend: { position: 'bottom', fontSize: '11px' },
+        dataLabels: {
+          enabled: true//,
+          /*formatter: function (val) {
+            // Usamos Math.round() para redondear al entero más cercano (ej: 44.25 -> 44)
+            return Math.round(val) + "%";
+
+            // O si prefieres dejar exactamente 1 decimal (ej: 44.3%):
+            // return val.toFixed(1) + "%";
+          }*/
+        }
       };
       this.renderApexChart(container, options);
     }
