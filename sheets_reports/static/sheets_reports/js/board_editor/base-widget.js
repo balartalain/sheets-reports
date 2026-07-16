@@ -21,6 +21,7 @@
       optionsSource: 'flatFunctions',
       optionValueKey: 'path',
       emptyOption: { value: '', label: '— Sin asignar —' },
+      refreshable: true,
     };
 
     static FIELD_WIDTH = {

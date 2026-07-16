@@ -24,10 +24,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   store.widgets.forEach(w => w.fetchAndRender());
 
-  fetch(`/api/widget-functions/${window.DASHBOARD_SLUG}/`)
-    .then(r => r.json())
-    .then(data => { store.availableFunctions = data; })
-    .catch(() => {});
+  store.refreshAvailableFunctions();
 
   requestAnimationFrame(() => {
     window.dispatchEvent(new Event('resize'));

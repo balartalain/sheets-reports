@@ -78,7 +78,14 @@
     <div class="space-y-4">
       <template x-for="field in $store.dashboard.drawerFields" :key="field.key">
         <div>
-          <label class="block text-xs font-semibold text-ink/70 mb-1" x-text="field.label"></label>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-xs font-semibold text-ink/70" x-text="field.label"></label>
+            <button type="button" x-show="field.refreshable"
+                    x-on:click="$store.dashboard.refreshAvailableFunctions()"
+                    class="text-ink/40 hover:text-moss-600 transition cursor-pointer" title="Actualizar funciones">
+              <i class="ti ti-refresh text-sm" aria-hidden="true"></i>
+            </button>
+          </div>
 
           <template x-if="field.type === 'text'">
             <input type="text" x-model="$store.dashboard.drawerDraft[field.key]"

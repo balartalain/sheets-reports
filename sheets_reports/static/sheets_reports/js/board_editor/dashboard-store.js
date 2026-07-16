@@ -12,6 +12,13 @@ document.addEventListener('alpine:init', () => {
       return this.availableFunctions.map(name => ({ path: name, label: name }));
     },
 
+    async refreshAvailableFunctions() {
+      try {
+        const r = await fetch(`/api/widget-functions/${window.DASHBOARD_SLUG}/`);
+        this.availableFunctions = await r.json();
+      } catch (e) {}
+    },
+
     async loadWidgetsFromServer() {
       try {
         const r = await fetch(`/api/dashboard/${this.dashboardId}/widgets/`);
