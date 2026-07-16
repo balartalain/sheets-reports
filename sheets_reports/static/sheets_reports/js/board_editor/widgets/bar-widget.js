@@ -49,6 +49,21 @@
         xaxis: { categories, labels: { style: { fontSize: '11px' } } },
         plotOptions: { bar: { horizontal: this.horizontal, borderRadius: 4, borderRadiusApplication: 'end', columnWidth: '50%' } },
         grid: { padding: { bottom: 25 } },
+        dataLabels: {
+          enabled: true,
+          style: {
+            fontSize: '11px',
+            colors: ['#fff'],
+          },
+          dropShadow: {
+            enabled: true,    // ¡Activa la sombra nativa!
+            top: 1,           // Desplazamiento vertical de la sombra
+            left: 1,          // Desplazamiento horizontal de la sombra
+            blur: 1,          // Qué tan difuminada está la sombra
+            color: '#000000', // Color de la sombra (negro)
+            opacity: 0.7      // Opacidad (0 es transparente, 1 es oscuro total)
+          }
+        },
         stroke: {
           show: true,
           width: 1,
