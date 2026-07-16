@@ -14,7 +14,7 @@
     static FIELD_HORIZONTAL = { key: 'horizontal', label: 'Horizontal', type: 'checkbox' };
 
     static get drawerFields() {
-      return [...super.drawerFields, this.FIELD_HORIZONTAL];
+      return [...super.drawerFields, this.FIELD_HORIZONTAL, { key: 'yAxisWidth', label: 'Ancho del Eje Y (px)', type: 'number', min: 100, step: 10 }];
     }
 
     static mockData() {
@@ -27,6 +27,7 @@
     constructor(raw) {
       super(raw);
       this.horizontal = raw.horizontal ?? false;
+      this.yAxisWidth = raw.yAxisWidth;
     }
 
     buildElement() {
@@ -34,7 +35,7 @@
     }
 
     getProperties() {
-      return { ...super.getProperties(), horizontal: this.horizontal };
+      return { ...super.getProperties(), horizontal: this.horizontal, yAxisWidth: this.yAxisWidth };
     }
 
     renderContent(container, data) {
@@ -42,7 +43,7 @@
       const series = payload.series || [{ name: 'Datos', data: [] }];
       const categories = payload.categories || [];
       const options = {
-        chart: { type: 'bar', height: '100%', width: '100%', fontFamily: 'inherit', toolbar: { show: false } },
+        chart: { type: 'bar', height: '95%', width: '100%', fontFamily: 'inherit', toolbar: { show: false } },
         colors: ['#2563eb', '#f5a623', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#dbeafe'],
         series,
         xaxis: { categories, labels: { style: { fontSize: '11px' } } },
@@ -56,6 +57,11 @@
         tooltip: {
           shared: true,
           intersect: false,
+        },
+        yaxis: {
+          labels: {
+            ...(this.yAxisWidth && { maxWidth: this.yAxisWidth })
+          }
         },
       };
       this.renderApexChart(container, options);
