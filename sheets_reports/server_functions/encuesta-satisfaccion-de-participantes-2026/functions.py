@@ -263,6 +263,22 @@ def distribucion_por_nivel(request, widget):
                 "TotalGeneral": total,
             })
 
+        if rows:
+            nuevo_total = sum(r["NuevoIngreso"] for r in rows)
+            regular_total = sum(r["Regular"] for r in rows)
+            termino_total = sum(r["Termino"] for r in rows)
+            gran_total = sum(r["TotalGeneral"] for r in rows)
+            rows.append({
+                "Escuela": "Total",
+                "NuevoIngreso": nuevo_total,
+                "PctNuevoIngreso": pct(nuevo_total, gran_total),
+                "Regular": regular_total,
+                "PctRegular": pct(regular_total, gran_total),
+                "Termino": termino_total,
+                "PctTermino": pct(termino_total, gran_total),
+                "TotalGeneral": gran_total,
+            })
+
     return JsonResponse({"columns": columns, "rows": rows})
 
 
