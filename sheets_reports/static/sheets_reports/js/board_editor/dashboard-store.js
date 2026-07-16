@@ -9,13 +9,7 @@ document.addEventListener('alpine:init', () => {
     _nextId: -1,
 
     get flatFunctions() {
-      const result = [];
-      for (const group of this.availableFunctions) {
-        for (const fn of group.functions) {
-          result.push({ ...fn, label: group.module + ' / ' + fn.name });
-        }
-      }
-      return result;
+      return this.availableFunctions.map(name => ({ path: name, label: name }));
     },
 
     async loadWidgetsFromServer() {

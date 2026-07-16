@@ -139,9 +139,9 @@ def dashboard_filters(request, board_id):
 
 def widget_functions(request, board_slug):
     """
-    Retorna las funciones disponibles del tablero `board_slug`, leídas desde
-    server_functions/<slug>/functions.py. Solo incluye funciones definidas por
-    el usuario (no las importadas ni las privadas que empiezan con _).
+    Retorna los nombres de las funciones disponibles del tablero `board_slug`,
+    leídas desde server_functions/<slug>/functions.py. Solo incluye funciones
+    definidas por el usuario (no las importadas ni las privadas que empiezan con _).
     """
     dashboard = get_object_or_404(Dashboard, slug=board_slug)
     module_name = f"sheets_reports.server_functions.{dashboard.slug}.functions"
@@ -151,16 +151,9 @@ def widget_functions(request, board_slug):
     except ModuleNotFoundError:
         return JsonResponse([], safe=False)
 
-    functions = []
-    for name, obj in inspect.getmembers(module, inspect.isfunction):
-        if name.startswith("_"):
-            continue
-        # Solo funciones definidas en este módulo, no importadas
-        if getattr(obj, "__module__", None) == module_name:
-            functions.append({
-                "path": f"{dashboard.slug}.{name}",
-                "name": name,
-            })
+    functions = [
+        name for name, obj in inspect.getmembers(module, inspect.isfunction)
+        if not name.startswith("_") and getattr(obj, "__module__", None) == module_name
+    ]
 
-    modules = [{"module": dashboard.slug, "functions": functions}] if functions else []
-    return JsonResponse(modules, safe=False)
+    return JsonResponse(functions, safe=False)

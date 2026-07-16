@@ -8,22 +8,18 @@ from sheets_reports.models import WidgetInstance
 logger = logging.getLogger(__name__)
 
 
-def _import_function(function_path: str):
+def _import_function(func_name: str, board_slug: str):
     """
-    Importa una función desde un path como 'reporte-de-ventas.total_ventas', donde
-    el primer segmento es el slug de la carpeta en server_functions/ y el último
-    es el nombre de la función dentro de su functions.py.
+    Importa una función por su nombre desde server_functions/<board_slug>/functions.py.
     Retorna (module, function_name, error_response).
     """
-    parts = function_path.split(".")
-    if len(parts) < 2:
+    if not func_name:
         return None, None, JsonResponse(
-            {"error": f"function_path inválido: '{function_path}'. Debe ser 'slug.funcion'."},
+            {"error": "El widget no tiene una función asignada."},
             status=400,
         )
 
-    func_name = parts[-1]
-    module_path = "sheets_reports.server_functions." + ".".join(parts[:-1]) + ".functions"
+    module_path = f"sheets_reports.server_functions.{board_slug}.functions"
 
     try:
         module = importlib.import_module(module_path)
@@ -83,7 +79,7 @@ def dispatch_widget(request, widget_id: int) -> JsonResponse:
     except WidgetInstance.DoesNotExist:
         return JsonResponse({"error": "Widget no encontrado"}, status=404)
 
-    module, func_name, error = _import_function(widget.function_path)
+    module, func_name, error = _import_function(widget.function_path, widget.dashboard.slug)
     if error:
         return error
 

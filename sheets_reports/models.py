@@ -81,7 +81,7 @@ class WidgetInstance(models.Model):
     function_path = models.CharField(
         max_length=255,
         default="",
-        help_text="Ruta a la función del servidor (ej. 'views_ventas_norte.total_ventas').",
+        help_text="Nombre de la función del servidor definida en server_functions/<slug del tablero>/functions.py (ej. 'total_ventas').",
     )
     properties = models.JSONField(
         default=dict,
