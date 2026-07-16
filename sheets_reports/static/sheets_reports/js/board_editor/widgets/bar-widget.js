@@ -46,7 +46,7 @@
         colors: ['#2563eb'],
         series,
         xaxis: { categories, labels: { style: { fontSize: '11px' } } },
-        plotOptions: { bar: { horizontal: this.horizontal, borderRadius: 4, columnWidth: '55%' } },
+        plotOptions: { bar: { horizontal: this.horizontal, borderRadius: 4, borderRadiusApplication: 'end', columnWidth: '55%' } },
         grid: { padding: { bottom: 25 } },
       };
       this.renderApexChart(container, options);
