@@ -79,7 +79,7 @@ def dispatch_widget(request, widget_id: int) -> JsonResponse:
     except WidgetInstance.DoesNotExist:
         return JsonResponse({"error": "Widget no encontrado"}, status=404)
 
-    module, func_name, error = _import_function(widget.function_path, widget.dashboard.slug)
+    module, func_name, error = _import_function(widget.function_path, widget.dashboard.functions_slug)
     if error:
         return error
 

@@ -144,7 +144,7 @@ def widget_functions(request, board_slug):
     definidas por el usuario (no las importadas ni las privadas que empiezan con _).
     """
     dashboard = get_object_or_404(Dashboard, slug=board_slug)
-    module_name = f"sheets_reports.server_functions.{dashboard.slug}.functions"
+    module_name = f"sheets_reports.server_functions.{dashboard.functions_slug}.functions"
 
     try:
         module = importlib.import_module(module_name)
