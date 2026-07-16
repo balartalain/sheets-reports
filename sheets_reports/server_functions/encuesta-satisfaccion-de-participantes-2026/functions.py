@@ -282,6 +282,48 @@ def distribucion_por_nivel(request, widget):
     return JsonResponse({"columns": columns, "rows": rows})
 
 
+def resumen_nivel_satisfaccion(request, widget):
+    """
+    Retorna, por Categoria, el conteo y % de 'Completamente satisfecho' y
+    'Satisfecho', mas el total de respuestas.
+    Retorna formato compatible con Tabulator: { columns: [{title, field}], rows: [{...}] }.
+    """
+    df = get_cached_df(widget.dashboard, "Respuestas Indique su nivel de satisfacción con los siguientes aspectos")
+    df = _add_nivel_column(df)
+    df = apply_active_filters(df, request, widget)
+
+    columns = [
+        {"title": "Categoría", "field": "Categoría"},
+        {"title": "Completamente Satisfecho", "field": "CompletamenteSatisfecho"},
+        {"title": "%", "field": "PctCompletamente"},
+        {"title": "Satisfecho", "field": "Satisfecho"},
+        {"title": "%", "field": "PctSatisfecho"},
+        {"title": "Total", "field": "Total"},
+    ]
+
+    if "Categoría" not in df.columns or "Respuesta" not in df.columns:
+        rows = []
+    else:
+        categorias = sorted(df["Categoría"].unique())
+        rows = []
+        for cat in categorias:
+            sub = df[df["Categoría"] == cat]
+            completamente = int((sub["Respuesta"] == "Completamente satisfecho").sum())
+            satisfecho = int((sub["Respuesta"] == "Satisfecho").sum())
+            total = completamente + satisfecho
+            def pct(n): return f"{round(n / total * 100)}%" if total else "0%"
+            rows.append({
+                "Categoría": cat,
+                "CompletamenteSatisfecho": completamente,
+                "PctCompletamente": pct(completamente),
+                "Satisfecho": satisfecho,
+                "PctSatisfecho": pct(satisfecho),
+                "Total": total,
+            })
+
+    return JsonResponse({"columns": columns, "rows": rows})
+
+
 def filtro_recintos(request, widget):
     """
     Retorna lista de recintos únicos para un filtro, junto con el valor ya
