@@ -46,7 +46,7 @@
       el.className = `${this.width}${this.startCol ? ' ' + this.startCol : ''} relative flex items-center self-start`;
       el.dataset.widgetId = this.id;
       el.dataset.type = this.chart_type;
-      el.innerHTML = `<div id="chart-${this.id}" class="flex-1 min-w-0"></div>`;
+      el.innerHTML = `<div id="chart-${this.id}" class="flex-1 min-w-0"></div>${this.loaderOverlayHTML()}`;
       return el;
     }
 
