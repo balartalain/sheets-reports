@@ -10,18 +10,20 @@ logger = logging.getLogger(__name__)
 
 def _import_function(function_path: str):
     """
-    Importa una función desde un path como 'views_ventas_norte.total_ventas'.
+    Importa una función desde un path como 'reporte-de-ventas.total_ventas', donde
+    el primer segmento es el slug de la carpeta en server_functions/ y el último
+    es el nombre de la función dentro de su functions.py.
     Retorna (module, function_name, error_response).
     """
     parts = function_path.split(".")
     if len(parts) < 2:
         return None, None, JsonResponse(
-            {"error": f"function_path inválido: '{function_path}'. Debe ser 'modulo.funcion'."},
+            {"error": f"function_path inválido: '{function_path}'. Debe ser 'slug.funcion'."},
             status=400,
         )
 
     func_name = parts[-1]
-    module_path = "sheets_reports." + ".".join(parts[:-1])
+    module_path = "sheets_reports.server_functions." + ".".join(parts[:-1]) + ".functions"
 
     try:
         module = importlib.import_module(module_path)

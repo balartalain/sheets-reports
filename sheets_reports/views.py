@@ -1,7 +1,6 @@
 import importlib
 import inspect
 import json
-from pathlib import Path
 
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
@@ -138,36 +137,30 @@ def dashboard_filters(request, board_id):
     return JsonResponse({"ok": True})
 
 
-def widget_functions(request):
+def widget_functions(request, board_slug):
     """
-    Escanea sheets_reports/views_*.py y retorna las funciones disponibles
-    agrupadas por módulo. Solo incluye funciones definidas por el usuario
-    (no las importadas ni las privadas que empiezan con _).
+    Retorna las funciones disponibles del tablero `board_slug`, leídas desde
+    server_functions/<slug>/functions.py. Solo incluye funciones definidas por
+    el usuario (no las importadas ni las privadas que empiezan con _).
     """
-    views_dir = Path(__file__).parent
-    modules = []
+    dashboard = get_object_or_404(Dashboard, slug=board_slug)
+    module_name = f"sheets_reports.server_functions.{dashboard.slug}.functions"
 
-    for filepath in sorted(views_dir.glob("views_*.py")):
-        if filepath.stem == "views_dashboard":
-            continue
-        module_name = f"sheets_reports.{filepath.stem}"
+    try:
         module = importlib.import_module(module_name)
+    except ModuleNotFoundError:
+        return JsonResponse([], safe=False)
 
-        functions = []
-        for name, obj in inspect.getmembers(module, inspect.isfunction):
-            if name.startswith("_"):
-                continue
-            # Solo funciones definidas en este módulo, no importadas
-            if getattr(obj, "__module__", None) == module_name:
-                functions.append({
-                    "path": f"{filepath.stem}.{name}",
-                    "name": name,
-                })
-
-        if functions:
-            modules.append({
-                "module": filepath.stem.replace("views_", ""),
-                "functions": functions,
+    functions = []
+    for name, obj in inspect.getmembers(module, inspect.isfunction):
+        if name.startswith("_"):
+            continue
+        # Solo funciones definidas en este módulo, no importadas
+        if getattr(obj, "__module__", None) == module_name:
+            functions.append({
+                "path": f"{dashboard.slug}.{name}",
+                "name": name,
             })
 
+    modules = [{"module": dashboard.slug, "functions": functions}] if functions else []
     return JsonResponse(modules, safe=False)

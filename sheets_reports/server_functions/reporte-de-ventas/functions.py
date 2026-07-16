@@ -1,5 +1,5 @@
 """
-Vistas de datos para el tablero "Ventas Región Norte".
+Vistas de datos para el tablero "Reporte de Ventas" (slug: reporte-de-ventas).
 Cada función recibe (request, widget) y retorna un JsonResponse. Cada una es
 responsable de cargar su(s) propio(s) DataFrame con
 `get_cached_df(widget.dashboard, sheet_name)` (sheet_name=None usa la primera
