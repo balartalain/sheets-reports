@@ -14,7 +14,11 @@
     static FIELD_HORIZONTAL = { key: 'horizontal', label: 'Horizontal', type: 'checkbox' };
 
     static get drawerFields() {
-      return [...super.drawerFields, this.FIELD_HORIZONTAL, { key: 'yAxisWidth', label: 'Ancho del Eje Y (px)', type: 'number', min: 100, step: 10 }];
+      return [...super.drawerFields,
+        this.FIELD_HORIZONTAL,
+        { key: 'yAxisWidth', label: 'Ancho del Eje Y (px)', type: 'number', min: 100, step: 10 },
+        { key: 'stacked', label: 'Apilado', type: 'checkbox' },
+      ];
     }
 
     static mockData() {
@@ -28,6 +32,7 @@
       super(raw);
       this.horizontal = raw.horizontal ?? false;
       this.yAxisWidth = raw.yAxisWidth;
+      this.stacked = raw.stacked ?? false;
     }
 
     buildElement() {
@@ -35,7 +40,7 @@
     }
 
     getProperties() {
-      return { ...super.getProperties(), horizontal: this.horizontal, yAxisWidth: this.yAxisWidth };
+      return { ...super.getProperties(), horizontal: this.horizontal, yAxisWidth: this.yAxisWidth, stacked: this.stacked };
     }
 
     renderContent(container, data) {
@@ -43,7 +48,7 @@
       const series = payload.series || [{ name: 'Datos', data: [] }];
       const categories = payload.categories || [];
       const options = {
-        chart: { type: 'bar', height: '95%', width: '100%', fontFamily: 'inherit', toolbar: { show: false } },
+        chart: { type: 'bar', stacked: this.stacked, height: '95%', width: '100%', fontFamily: 'inherit', toolbar: { show: false } },
         colors: ['#2563eb', '#f5a623', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#dbeafe'],
         series,
         xaxis: { categories, labels: { style: { fontSize: '11px' } } },
