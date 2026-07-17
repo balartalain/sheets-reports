@@ -41,9 +41,12 @@
   color: var(--tb-ink-muted);
   text-transform: none;
 }
-.tabulator-row-bold {
+.tabulator .tabulator-row.tabulator-row-bold {
   font-weight: bold;
-  color: #2c3e50; /* Opcional: para darle un toque visual */
+  background-color: var(--color-header);
+}
+.tabulator .tabulator-row.tabulator-row-bold .tabulator-cell{
+  color: #fff;
 }
 /* Flechitas de orden — apagadas por defecto, visibles al hover/activo */
 .tabulator .tabulator-col-sorter {
