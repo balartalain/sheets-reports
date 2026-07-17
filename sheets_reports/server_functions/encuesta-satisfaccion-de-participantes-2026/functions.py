@@ -438,6 +438,29 @@ def filtro_escuelas(request, widget):
     return JsonResponse({"options": data, "selected": selected})
 
 
+def kpi_destinatarios(request, widget):
+    """
+    Retorna el total de destinatarios y cuántos ya fueron notificados.
+    Retorna formato compatible con el widget KPI:
+    { main_value, main_label, secondary_values: [{label, value}] }.
+    """
+    df = get_cached_df(widget.dashboard, "Destinatarios")
+
+    total = int(len(df))
+    if "Estado" in df.columns:
+        notificados = int((df["Estado"].astype(str).str.strip().str.upper() == "ENVIADO").sum())
+    else:
+        notificados = 0
+
+    return JsonResponse({
+        "main_value": total,
+        "main_label": "Participantes",
+        "secondary_values": [
+            {"label": "Notifiados", "value": notificados},
+        ],
+    })
+
+
 def filtro_nivel(request, widget):
     """
     Retorna las opciones fijas del filtro de Nivel (Nuevo Ingreso, Regular,

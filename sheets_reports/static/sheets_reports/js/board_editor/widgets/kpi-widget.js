@@ -12,7 +12,14 @@
     static defaults = { title: 'Tarjeta KPI', width: 'md:col-span-4', height: 300 };
 
     static mockData() {
-      return { total_ventas: 412900, label: 'Monto Consumido' };
+      return {
+        main_value: 412900,
+        main_label: 'Monto Consumido',
+        secondary_values: [
+          { label: 'Efectivo', value: 210000 },
+          { label: 'Tarjeta', value: 202900 },
+        ],
+      };
     }
 
     buildElement() {
@@ -21,12 +28,22 @@
 
     renderContent(container, data) {
       const payload = data || this.constructor.mockData();
-      const value = payload.total_ventas ?? '—';
-      const label = payload.label ?? 'Total';
+      const value = payload.main_value ?? '—';
+      const label = payload.main_label ?? 'Total';
+      const secondaryValues = payload.secondary_values || [];
+      const secondaryHTML = secondaryValues.length
+        ? `<div class="flex flex-col items-center mt-2 gap-0.5">
+            ${secondaryValues.map(({ label, value }) => {
+              const formattedValue = typeof value === 'number' ? value.toLocaleString() : value;
+              return `<span class="text-[10px] text-ink/60">${label}: ${formattedValue}</span>`;
+            }).join('')}
+          </div>`
+        : '';
       container.className = 'flex flex-col items-center justify-center h-full pb-3';
       container.innerHTML = `
         <span class="text-2xl font-black text-ink tracking-tight">${Number(value).toLocaleString()}</span>
         <span class="text-[11px] font-semibold text-ink/40 mt-0.5 uppercase tracking-wide">${label}</span>
+        ${secondaryHTML}
       `;
     }
   }
