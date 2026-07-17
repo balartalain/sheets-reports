@@ -52,7 +52,35 @@
         minWidth: this.minWidth,
       };
     }
+    getChartColors(series) {
+      const mapaColores = {
+        'Completamente insatisfecho': '#d60707ff',
+        'Insatisfecho': '#ff2929ff',
+        'Muy bajo': '#FF0000',
+      };
 
+      const coloresPorDefecto = ['#2563eb', '#f5a623', '#1F8A5F', '#8F5E2E'];
+
+      // Creamos un contador para saber qué color por defecto toca asignar
+      let indiceDefecto = 0;
+
+      const coloresOrdenados = series.map(serie => {
+        // 1. Si el nombre de la serie existe en el mapa, usamos ese color
+        if (mapaColores[serie.name]) {
+          return mapaColores[serie.name];
+        }
+
+        // 2. Si no existe, tomamos el siguiente color disponible de la lista por defecto
+        // Usamos el operador % (módulo) por si hay más series que colores por defecto, así no rompe y vuelve a empezar
+        const colorAsignado = coloresPorDefecto[indiceDefecto % coloresPorDefecto.length];
+
+        // Incrementamos el contador solo cuando usamos un color de la lista por defecto
+        indiceDefecto++;
+
+        return colorAsignado;
+      });
+      return coloresOrdenados;
+    }
     renderContent(container, data) {
       const payload = data || this.constructor.mockData();
       const series = payload.series || [{ name: 'Datos', data: [] }];
@@ -65,10 +93,9 @@
         container.style.overflowX = '';
         container.style.overflowY = '';
       }
-
       const options = {
         chart: { type: 'bar', stacked: this.stacked, height: '95%', width: this.minWidth || '100%', fontFamily: 'inherit', toolbar: { show: false } },
-        colors: ['#2563eb', '#f5a623', '#1F8A5F', '#8F5E2E'],
+        colors: this.getChartColors(series),
         series,
         xaxis: { categories, labels: { style: { fontSize: '11px' }, maxHeight: 150 } },
         plotOptions: { bar: { horizontal: this.horizontal, borderRadius: 4, borderRadiusApplication: 'end', columnWidth: '50%',
