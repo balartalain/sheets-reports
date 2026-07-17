@@ -68,7 +68,7 @@
 
       const options = {
         chart: { type: 'bar', stacked: this.stacked, height: '95%', width: this.minWidth || '100%', fontFamily: 'inherit', toolbar: { show: false } },
-        colors: ['#2563eb', '#f5a623', '#1F8A5F', '#8F5E2E'],
+        colors: ['#2563eb', '#f5a623', '#00e1ffff', '#3965c4ff'],
         series,
         xaxis: { categories, labels: { style: { fontSize: '11px' }, maxHeight: 150 } },
         plotOptions: { bar: { horizontal: this.horizontal, borderRadius: 4, borderRadiusApplication: 'end', columnWidth: '50%',
