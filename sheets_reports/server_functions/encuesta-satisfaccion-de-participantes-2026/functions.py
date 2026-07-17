@@ -10,6 +10,7 @@ import pandas as pd
 from django.http import JsonResponse
 
 from sheets_reports.utils.cache import get_cached_df
+from sheets_reports.utils.table_helpers import tabla_conteo_por_respuesta
 from sheets_reports.utils.widget_dispatcher import apply_active_filters, get_active_filters
 
 
@@ -285,44 +286,15 @@ def distribucion_por_nivel(request, widget):
 
 def resumen_nivel_satisfaccion(request, widget):
     """
-    Retorna, por Categoria, el conteo y % de 'Completamente satisfecho' y
-    'Satisfecho', mas el total de respuestas.
+    Retorna, por Categoria, el conteo y % de cada valor de 'Respuesta'
+    ('Completamente satisfecho', 'Satisfecho', etc.), mas el total de respuestas.
     Retorna formato compatible con Tabulator: { columns: [{title, field}], rows: [{...}] }.
     """
     df = get_cached_df(widget.dashboard, "Respuestas Indique su nivel de satisfacción con los siguientes aspectos")
     df = _add_nivel_column(df)
     df = apply_active_filters(df, request, widget)
 
-    columns = [
-        {"title": "Categoría", "field": "Categoría"},
-        {"title": "Completamente Satisfecho", "field": "CompletamenteSatisfecho"},
-        {"title": "%", "field": "PctCompletamente"},
-        {"title": "Satisfecho", "field": "Satisfecho"},
-        {"title": "%", "field": "PctSatisfecho"},
-        {"title": "Total", "field": "Total"},
-    ]
-
-    if "Categoría" not in df.columns or "Respuesta" not in df.columns:
-        rows = []
-    else:
-        categorias = sorted(df["Categoría"].unique())
-        rows = []
-        for cat in categorias:
-            sub = df[df["Categoría"] == cat]
-            completamente = int((sub["Respuesta"] == "Completamente satisfecho").sum())
-            satisfecho = int((sub["Respuesta"] == "Satisfecho").sum())
-            total = completamente + satisfecho
-            def pct(n): return f"{round(n / total * 100)}%" if total else "0%"
-            rows.append({
-                "Categoría": cat,
-                "CompletamenteSatisfecho": completamente,
-                "PctCompletamente": pct(completamente),
-                "Satisfecho": satisfecho,
-                "PctSatisfecho": pct(satisfecho),
-                "Total": total,
-            })
-
-    return JsonResponse({"columns": columns, "rows": rows})
+    return JsonResponse(tabla_conteo_por_respuesta(df))
 
 
 def distribucion_nivel_satisfaccion(request, widget):
@@ -359,44 +331,15 @@ def distribucion_nivel_satisfaccion(request, widget):
 
 def resumen_nivel_aprendizaje(request, widget):
     """
-    Retorna, por Categoria, el conteo y % de 'Alto' y
-    'Bajo', mas el total de respuestas.
+    Retorna, por Categoria, el conteo y % de cada valor de 'Respuesta'
+    ('Alto', 'Bajo', etc.), mas el total de respuestas.
     Retorna formato compatible con Tabulator: { columns: [{title, field}], rows: [{...}] }.
     """
     df = get_cached_df(widget.dashboard, "Respuestas Indique el nivel de aprendizaje que usted considera ha obtenido con el uso de las siguien")
     df = _add_nivel_column(df)
     df = apply_active_filters(df, request, widget)
 
-    columns = [
-        {"title": "Categoría", "field": "Categoría"},
-        {"title": "Alto", "field": "Alto"},
-        {"title": "%", "field": "PctAlto"},
-        {"title": "Bajo", "field": "Bajo"},
-        {"title": "%", "field": "PctBajo"},
-        {"title": "Total", "field": "Total"},
-    ]
-
-    if "Categoría" not in df.columns or "Respuesta" not in df.columns:
-        rows = []
-    else:
-        categorias = sorted(df["Categoría"].unique())
-        rows = []
-        for cat in categorias:
-            sub = df[df["Categoría"] == cat]
-            alto = int((sub["Respuesta"] == "Alto").sum())
-            bajo = int((sub["Respuesta"] == "Bajo").sum())
-            total = alto + bajo
-            def pct(n): return f"{round(n / total * 100)}%" if total else "0%"
-            rows.append({
-                "Categoría": cat,
-                "Alto": alto,
-                "PctAlto": pct(alto),
-                "Bajo": bajo,
-                "PctBajo": pct(bajo),
-                "Total": total,
-            })
-
-    return JsonResponse({"columns": columns, "rows": rows})
+    return JsonResponse(tabla_conteo_por_respuesta(df))
 
 def respuestas_por_dia(request, widget):
     """
