@@ -183,7 +183,8 @@
       const titleHTML = this.title
         ? `<div class="flex items-center border-line pb-2 mb-2"><span class="text-[10px] font-bold uppercase tracking-wider text-ink/40">${BaseWidget.escapeHTML(this.title)}</span></div>`
         : '';
-      el.innerHTML = `${titleHTML}<div id="chart-${this.id}" class="flex-1 w-full min-h-0"></div>${this.loaderOverlayHTML()}`;
+      el.innerHTML = `${titleHTML}<div id="chart-${this.id}" class="flex-1 w-full min-h-0"></div>${this.loaderOverlayHTML()}
+        <div class="actions-slot absolute top-2 right-2 z-30 flex items-center gap-1"></div>`;
       return el;
     }
 
