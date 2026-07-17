@@ -315,17 +315,24 @@ def distribucion_nivel_satisfaccion(request, widget):
 
     return JsonResponse(distribucion_por_respuesta(df))
 
-def resumen_nivel_aprendizaje(request, widget):
+def resumen_valoracion(request, widget):
     """
     Retorna, por Categoria, el conteo y % de cada valor de 'Respuesta'
     ('Alto', 'Bajo', etc.), mas el total de respuestas.
     Retorna formato compatible con Tabulator: { columns: [{title, field}], rows: [{...}] }.
     """
-    df = get_cached_df(widget.dashboard, "Respuestas Indique el nivel de aprendizaje que usted considera ha obtenido con el uso de las siguien")
+    df = get_cached_df(widget.dashboard, "Respuestas Valoración")
     df = _add_nivel_column(df)
     df = apply_active_filters(df, request, widget)
 
     return JsonResponse(tabla_conteo_por_respuesta(df))
+
+def distribucion_valoracion(request, widget):
+    df = get_cached_df(widget.dashboard, "Respuestas Valoración")
+    df = _add_nivel_column(df)
+    df = apply_active_filters(df, request, widget)
+
+    return JsonResponse(distribucion_por_respuesta(df))
 
 def respuestas_por_dia(request, widget):
     """
@@ -351,7 +358,6 @@ def respuestas_por_dia(request, widget):
         "series": [{"name": "Respuestas", "data": data_values}],
         "categories": categories,
     })
-
 
 def filtro_recintos(request, widget):
     """

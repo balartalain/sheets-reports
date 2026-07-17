@@ -19,7 +19,7 @@
         { key: 'yAxisWidth', label: 'Ancho del Eje Y (px)', type: 'number', min: 100, step: 10 },
         { key: 'stacked', label: 'Apilado', type: 'checkbox' },
         { key: 'dataLabelFormatter', label: 'Formato de Etiquetas de Datos. Ej. {value} %', type: 'text' },
-        { key: 'minWidth', label: 'Ancho mínimo (px, scroll horizontal si hay muchas categorías)', type: 'number', min: 100, step: 50 },
+        { key: 'chartWidth', label: 'Forzar ancho de gráfico', type: 'number', min: 100, step: 50 },
       ];
     }
 
@@ -36,7 +36,7 @@
       this.yAxisWidth = raw.yAxisWidth;
       this.stacked = raw.stacked ?? false;
       this.dataLabelFormatter = raw.dataLabelFormatter;
-      this.minWidth = raw.minWidth;
+      this.chartWidth = raw.chartWidth;
     }
 
     buildElement() {
@@ -55,7 +55,7 @@
         yAxisWidth: this.yAxisWidth,
         stacked: this.stacked,
         dataLabelFormatter: this.dataLabelFormatter,
-        minWidth: this.minWidth,
+        chartWidth: this.chartWidth,
       };
     }
 
@@ -64,7 +64,7 @@
       const series = payload.series || [{ name: 'Datos', data: [] }];
       const categories = payload.categories || [];
 
-      if (this.minWidth) {
+      if (this.chartWidth) {
         container.style.overflowX = 'scroll';
         container.style.overflowY = 'hidden';
       } else {
@@ -73,7 +73,7 @@
       }
 
       const options = {
-        chart: { type: 'bar', stacked: this.stacked, height: '95%', width: this.minWidth || '100%', fontFamily: 'inherit', toolbar: { show: false } },
+        chart: { type: 'bar', stacked: this.stacked, height: '95%', width: this.chartWidth || '100%', fontFamily: 'inherit', toolbar: { show: false } },
         colors: ['#2563eb', '#f5a623', '#00e1ffff', '#3965c4ff'],
         series,
         xaxis: { categories, labels: { style: { fontSize: '11px' }, maxHeight: 150 } },
