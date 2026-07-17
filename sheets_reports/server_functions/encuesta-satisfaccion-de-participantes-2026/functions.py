@@ -188,6 +188,8 @@ def resumen_por_escuela(request, widget):
             }
             for escuela, cantidad in conteo.items()
         ]
+        if rows:
+            rows.append({"Escuela": "Total", "Cantidad": total, "Porcentaje": "100%"})
 
     return JsonResponse({"columns": columns, "rows": rows})
 
