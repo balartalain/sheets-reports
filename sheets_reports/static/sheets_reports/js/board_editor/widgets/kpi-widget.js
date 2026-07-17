@@ -35,7 +35,7 @@
         ? `<div class="flex flex-col items-center mt-2 gap-0.5">
             ${secondaryValues.map(({ label, value }) => {
               const formattedValue = typeof value === 'number' ? value.toLocaleString() : value;
-              return `<span class="text-[10px] text-ink/60">${label}: ${formattedValue}</span>`;
+              return `<span class="text-[10px] text-ink/60">${formattedValue} ${label}</span>`;
             }).join('')}
           </div>`
         : '';

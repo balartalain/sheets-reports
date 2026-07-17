@@ -6,6 +6,7 @@ responsable de cargar su(s) propio(s) DataFrame con
 hoja), lo que permite cruzar datos de varias pestañas del mismo spreadsheet
 cuando haga falta.
 """
+import pandas as pd
 from django.http import JsonResponse
 
 from sheets_reports.utils.cache import get_cached_df
@@ -397,6 +398,32 @@ def resumen_nivel_aprendizaje(request, widget):
 
     return JsonResponse({"columns": columns, "rows": rows})
 
+def respuestas_por_dia(request, widget):
+    """
+    Retorna la cantidad de respuestas recibidas por día, a partir de la
+    columna 'Marca temporal' (formato DD/MM/yyyy HH:MM:SS), ordenadas
+    cronológicamente.
+    Retorna formato compatible con ApexCharts (gráfico de línea):
+    { series: [{ name, data }], categories: [...] }.
+    """
+    df = get_cached_df(widget.dashboard, "Respuestas de formulario 1")
+    df = _add_nivel_column(df)
+    df = apply_active_filters(df, request, widget)
+
+    if "Marca temporal" not in df.columns:
+        categories, data_values = [], []
+    else:
+        fechas = pd.to_datetime(df["Marca temporal"], format="%d/%m/%Y %H:%M:%S", errors="coerce").dt.date
+        conteo = fechas.value_counts().sort_index()
+        categories = [fecha.strftime("%d/%m/%Y") for fecha in conteo.index]
+        data_values = conteo.tolist()
+
+    return JsonResponse({
+        "series": [{"name": "Respuestas", "data": data_values}],
+        "categories": categories,
+    })
+
+
 def filtro_recintos(request, widget):
     """
     Retorna lista de recintos únicos para un filtro, junto con el valor ya
@@ -440,7 +467,8 @@ def filtro_escuelas(request, widget):
 
 def kpi_destinatarios(request, widget):
     """
-    Retorna el total de destinatarios y cuántos ya fueron notificados.
+    Retorna el total de destinatarios, cuántos ya fueron notificados y
+    cuántos han respondido la encuesta.
     Retorna formato compatible con el widget KPI:
     { main_value, main_label, secondary_values: [{label, value}] }.
     """
@@ -452,11 +480,15 @@ def kpi_destinatarios(request, widget):
     else:
         notificados = 0
 
+    respuestas_df = get_cached_df(widget.dashboard, "Respuestas de formulario 1")
+    respuestas = int(len(respuestas_df))
+
     return JsonResponse({
         "main_value": total,
         "main_label": "Participantes",
         "secondary_values": [
-            {"label": "Notifiados", "value": notificados},
+            {"label": "Han sido notificados", "value": notificados},
+            {"label": "Han  respondido", "value": respuestas},
         ],
     })
 
