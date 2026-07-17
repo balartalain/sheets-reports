@@ -54,12 +54,7 @@
 
     buildReadOnlyElement() {
       const el = super.buildReadOnlyElement();
-      el.querySelector('.actions-slot').innerHTML = `
-        <button class="download-csv-btn text-ink/40 hover:text-moss-600 transition cursor-pointer p-0.5" title="Descargar CSV">
-          <svg viewBox="0 0 14 14" class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M7 1.5v8M7 9.5 4 6.5M7 9.5l3-3M2 11.5v1a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1"/>
-          </svg>
-        </button>`;
+      el.querySelector('.actions-slot').innerHTML = this.downloadButtonHTML('Descargar CSV');
       return el;
     }
 
@@ -98,8 +93,7 @@
       const downloadBtn = this.el && this.el.querySelector('.download-csv-btn');
       if (downloadBtn) {
         downloadBtn.onclick = () => {
-          const filename = (this.title || 'tabla').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'tabla';
-          this._table.download('csv', `${filename}.csv`);
+          this._table.download('csv', `${this._filenameSlug('tabla')}.csv`);
         };
       }
     }

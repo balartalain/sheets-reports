@@ -85,6 +85,37 @@
       return div.innerHTML;
     }
 
+    static DOWNLOAD_ICON_SVG = `<svg viewBox="0 0 14 14" class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M7 1.5v8M7 9.5 4 6.5M7 9.5l3-3M2 11.5v1a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1"/>
+    </svg>`;
+
+    downloadButtonHTML(title = 'Descargar CSV') {
+      return `<button class="download-csv-btn text-ink/40 hover:text-moss-600 transition cursor-pointer p-0.5" title="${title}">
+        ${BaseWidget.DOWNLOAD_ICON_SVG}
+      </button>`;
+    }
+
+    _filenameSlug(fallback) {
+      return (this.title || fallback).trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || fallback;
+    }
+
+    downloadRowsAsCSV(headers, rows, filename) {
+      const escapeCell = (v) => {
+        const s = v === null || v === undefined ? '' : String(v);
+        return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      };
+      const csv = [headers, ...rows].map(r => r.map(escapeCell).join(',')).join('\r\n');
+      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
     static dragHandleHTML() {
       return `<div class="drag-handle cursor-move text-ink/30 hover:text-ink/60 absolute left-1 top-0 bottom-0 flex items-center opacity-0 group-hover:opacity-100 transition-opacity z-20 text-[1rem] leading-none">⣿</div>`;
     }

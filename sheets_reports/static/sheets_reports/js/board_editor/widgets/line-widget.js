@@ -22,6 +22,12 @@
       return this.buildStandardCardElement();
     }
 
+    buildReadOnlyElement() {
+      const el = super.buildReadOnlyElement();
+      el.querySelector('.actions-slot').innerHTML = this.downloadButtonHTML('Descargar CSV');
+      return el;
+    }
+
     renderContent(container, data) {
       const payload = data || this.constructor.mockData();
       const series = payload.series || [{ name: 'Datos', data: [] }];
@@ -35,6 +41,15 @@
         grid: { padding: { bottom: 25 } },
       };
       this.renderApexChart(container, options);
+
+      const downloadBtn = this.el && this.el.querySelector('.download-csv-btn');
+      if (downloadBtn) {
+        downloadBtn.onclick = () => {
+          const headers = ['Categoría', ...series.map(s => s.name)];
+          const rows = categories.map((cat, i) => [cat, ...series.map(s => s.data[i])]);
+          this.downloadRowsAsCSV(headers, rows, `${this._filenameSlug('grafico')}.csv`);
+        };
+      }
     }
   }
 
