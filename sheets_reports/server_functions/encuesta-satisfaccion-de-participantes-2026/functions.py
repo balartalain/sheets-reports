@@ -10,6 +10,7 @@ import pandas as pd
 from django.http import JsonResponse
 
 from sheets_reports.utils.cache import get_cached_df
+from sheets_reports.utils.chart_helpers import distribucion_por_respuesta
 from sheets_reports.utils.table_helpers import tabla_conteo_por_respuesta
 from sheets_reports.utils.widget_dispatcher import apply_active_filters, get_active_filters
 
@@ -65,7 +66,7 @@ def resumen_por_recinto(request, widget):
             {
                 "Recinto": recinto,
                 "Cantidad": int(cantidad),
-                "Porcentaje": f"{round(cantidad / total * 100)}%",
+                "Porcentaje": f"{round(cantidad / total * 100, 2)}%",
             }
             for recinto, cantidad in conteo.items()
         ]
@@ -118,7 +119,7 @@ def distribucion_por_periodo(request, widget):
         conteo = df["Período que está cursando"].astype(str).value_counts()
         total = int(conteo.sum())
         categories = sorted(conteo.index, key=lambda p: _PERIODO_ORDEN.get(p, 999))
-        data_values = [round(conteo[p] / total * 100) for p in categories]
+        data_values = [round(conteo[p] / total * 100, 2) for p in categories]
 
     return JsonResponse({
         "series": [{"name": "Porcentaje", "data": data_values}],
@@ -152,7 +153,7 @@ def resumen_por_periodo(request, widget):
             {
                 "Periodo": periodo,
                 "Cantidad": int(conteo[periodo]),
-                "Porcentaje": f"{round(conteo[periodo] / total * 100)}%",
+                "Porcentaje": f"{round(conteo[periodo] / total * 100, 2)}%",
             }
             for periodo in periodos
         ]
@@ -184,7 +185,7 @@ def resumen_por_escuela(request, widget):
             {
                 "Escuela": escuela,
                 "Cantidad": int(cantidad),
-                "Porcentaje": f"{round(cantidad / total * 100)}%",
+                "Porcentaje": f"{round(cantidad / total * 100, 2)}%",
             }
             for escuela, cantidad in conteo.items()
         ]
@@ -209,7 +210,7 @@ def distribucion_por_escuela(request, widget):
         conteo = df["Escuela a la que pertenece"].value_counts()
         total = int(conteo.sum())
         categories = conteo.index.tolist()
-        data_values = [round(v / total * 100) for v in conteo.tolist()]
+        data_values = [round(v / total * 100, 2) for v in conteo.tolist()]
 
     return JsonResponse({
         "series": [{"name": "Porcentaje", "data": data_values}],
@@ -240,7 +241,7 @@ def distribucion_por_nivel(request, widget):
     ]
 
     def pct(n, total):
-        return f"{round(n / total * 100)}%" if total else "0%"
+        return f"{round(n / total * 100, 2)}%" if total else "0%"
 
     if "Escuela a la que pertenece" not in df.columns or "Nivel" not in df.columns:
         rows = []
@@ -303,7 +304,8 @@ def resumen_nivel_satisfaccion(request, widget):
 
 def distribucion_nivel_satisfaccion(request, widget):
     """
-    Retorna, por Categoria, el % de 'Completamente satisfecho' y 'Satisfecho'.
+    Retorna, por Categoria, el % de cada valor de 'Respuesta'
+    ('Completamente satisfecho', 'Satisfecho', etc.).
     Retorna formato compatible con ApexCharts (grafico de barras apiladas):
     { series: [{ name, data }], categories: [...] }.
     """
@@ -311,27 +313,7 @@ def distribucion_nivel_satisfaccion(request, widget):
     df = _add_nivel_column(df)
     df = apply_active_filters(df, request, widget)
 
-    if "Categoría" not in df.columns or "Respuesta" not in df.columns:
-        return JsonResponse({"series": [], "categories": []})
-
-    categorias = sorted(df["Categoría"].unique())
-    pct_completo = []
-    pct_satisfecho = []
-    for cat in categorias:
-        sub = df[df["Categoría"] == cat]
-        completamente = int((sub["Respuesta"] == "Completamente satisfecho").sum())
-        satisfecho = int((sub["Respuesta"] == "Satisfecho").sum())
-        total = completamente + satisfecho
-        pct_completo.append(round(completamente / total * 100) if total else 0)
-        pct_satisfecho.append(round(satisfecho / total * 100) if total else 0)
-
-    return JsonResponse({
-        "series": [
-            {"name": "Completamente Satisfecho", "data": pct_completo},
-            {"name": "Satisfecho", "data": pct_satisfecho},
-        ],
-        "categories": categorias,
-    })
+    return JsonResponse(distribucion_por_respuesta(df))
 
 def resumen_nivel_aprendizaje(request, widget):
     """

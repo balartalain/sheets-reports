@@ -90,7 +90,7 @@ def tabla_conteo_por_respuesta(
             field_valor, field_pct = campos[valor]
             conteo = int((sub_valores == valor).sum())
             fila[field_valor] = conteo
-            fila[field_pct] = f"{round(conteo / total * 100)}%" if total else "0%"
+            fila[field_pct] = f"{round(conteo / total * 100, 2)}%" if total else "0%"
         fila["Total"] = total
         rows.append(fila)
 

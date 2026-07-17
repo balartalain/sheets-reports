@@ -19,6 +19,7 @@
         { key: 'yAxisWidth', label: 'Ancho del Eje Y (px)', type: 'number', min: 100, step: 10 },
         { key: 'stacked', label: 'Apilado', type: 'checkbox' },
         { key: 'dataLabelFormatter', label: 'Formato de Etiquetas de Datos. Ej. {value} %', type: 'text' },
+        { key: 'minWidth', label: 'Ancho mínimo (px, scroll horizontal si hay muchas categorías)', type: 'number', min: 100, step: 50 },
       ];
     }
 
@@ -35,6 +36,7 @@
       this.yAxisWidth = raw.yAxisWidth;
       this.stacked = raw.stacked ?? false;
       this.dataLabelFormatter = raw.dataLabelFormatter;
+      this.minWidth = raw.minWidth;
     }
 
     buildElement() {
@@ -46,7 +48,8 @@
         horizontal: this.horizontal,
         yAxisWidth: this.yAxisWidth,
         stacked: this.stacked,
-        dataLabelFormatter: this.dataLabelFormatter
+        dataLabelFormatter: this.dataLabelFormatter,
+        minWidth: this.minWidth,
       };
     }
 
@@ -54,21 +57,46 @@
       const payload = data || this.constructor.mockData();
       const series = payload.series || [{ name: 'Datos', data: [] }];
       const categories = payload.categories || [];
+
+      if (this.minWidth) {
+        container.style.overflowX = 'scroll';
+        container.style.overflowY = 'hidden';
+      } else {
+        container.style.overflowX = '';
+        container.style.overflowY = '';
+      }
+
       const options = {
-        chart: { type: 'bar', stacked: this.stacked, height: '95%', width: '100%', fontFamily: 'inherit', toolbar: { show: false } },
-        colors: ['#2563eb', '#f5a623', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#dbeafe'],
+        chart: { type: 'bar', stacked: this.stacked, height: '95%', width: this.minWidth || '100%', fontFamily: 'inherit', toolbar: { show: false } },
+        colors: ['#2563eb', '#f5a623', '#1F8A5F', '#8F5E2E'],
         series,
-        xaxis: { categories, labels: { style: { fontSize: '11px' } } },
-        plotOptions: { bar: { horizontal: this.horizontal, borderRadius: 4, borderRadiusApplication: 'end', columnWidth: '50%' } },
+        xaxis: { categories, labels: { style: { fontSize: '11px' }, maxHeight: 150 } },
+        plotOptions: { bar: { horizontal: this.horizontal, borderRadius: 4, borderRadiusApplication: 'end', columnWidth: '50%',
+          dataLabels:{
+            position: 'center'
+          }
+        }},
         grid: { padding: { bottom: 25 } },
         dataLabels: {
           enabled: true,
           formatter: (val) => {
             return this.dataLabelFormatter ? this.dataLabelFormatter.replace('{value}', val) : val;
           },
+          background: {
+              enabled: true,
+              foreColor: '#fff',     // Color del texto DENTRO del fondo (Blanco)
+              padding: 4,            // Espaciado interno del fondo
+              borderRadius: 4,       // Bordes redondeados del fondo
+              borderWidth: 1,        // Grosor del borde
+              borderColor: '#111',   // Color del borde del fondo
+              opacity: 0.9,          // Opacidad del fondo
+              dropShadow: {          // Añade una pequeña sombra al fondo si quieres
+                enabled: false
+              }
+            },
           style: {
             fontSize: '11px',
-            colors: ['#fff'],
+            colors: ['#333'],
           },
           dropShadow: {
             enabled: true,    // ¡Activa la sombra nativa!
@@ -90,7 +118,7 @@
         },
         yaxis: {
           labels: {
-            ...(this.yAxisWidth && { maxWidth: this.yAxisWidth })
+            ...(this.yAxisWidth && { maxWidth: this.yAxisWidth }),
           }
         },
       };
