@@ -9,7 +9,7 @@
       titleClass: 'text-amber-950',
       descClass: 'text-amber-700/80',
     };
-    static defaults = { title: 'Tabla', width: 'col-span-6', height: 300 };
+    static defaults = { title: 'Tabla', width: 'md:col-span-6', height: 300 };
 
     static FIELD_PAGE_SIZE = { key: 'pageSize', label: 'Filas por página', type: 'number', min: 5, step: 5 };
     static FIELD_SHOW_PAGINATION = { key: 'showPagination', label: 'Mostrar paginación', type: 'checkbox' };

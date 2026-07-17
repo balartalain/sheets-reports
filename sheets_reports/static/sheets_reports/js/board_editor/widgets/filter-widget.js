@@ -10,7 +10,7 @@
       titleClass: 'text-amber-950',
       descClass: 'text-amber-700/80',
     };
-    static defaults = { title: 'Filtro', width: 'col-span-4' };
+    static defaults = { title: 'Filtro', width: 'md:col-span-4' };
 
     static get drawerFields() {
       return super.drawerFields.filter(field => field.key !== 'height');
@@ -27,7 +27,7 @@
 
     buildElement() {
       const el = document.createElement('div');
-      el.className = `${this.width}${this.startCol ? ' ' + this.startCol : ''} relative flex items-center group self-start`;
+      el.className = `col-span-12 ${this.width}${this.startCol ? ' ' + this.startCol : ''} relative flex items-center group self-start`;
       //el.style.height = this.height + 'px';
       el.style.setProperty('--ghost-span', this._ghostSpanFromWidth());
       el.dataset.widgetId = this.id;
@@ -43,7 +43,7 @@
 
     buildReadOnlyElement() {
       const el = document.createElement('div');
-      el.className = `${this.width}${this.startCol ? ' ' + this.startCol : ''} relative flex items-center self-start`;
+      el.className = `col-span-12 ${this.width}${this.startCol ? ' ' + this.startCol : ''} relative flex items-center self-start`;
       el.dataset.widgetId = this.id;
       el.dataset.type = this.chart_type;
       el.innerHTML = `<div id="chart-${this.id}" class="flex-1 min-w-0"></div>${this.loaderOverlayHTML()}`;

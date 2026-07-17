@@ -9,7 +9,7 @@
       titleClass: 'text-emerald-950',
       descClass: 'text-emerald-700/80',
     };
-    static defaults = { title: 'Tarjeta KPI', width: 'col-span-4', height: 300 };
+    static defaults = { title: 'Tarjeta KPI', width: 'md:col-span-4', height: 300 };
 
     static mockData() {
       return { total_ventas: 412900, label: 'Monto Consumido' };

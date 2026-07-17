@@ -9,7 +9,7 @@
       titleClass: 'text-blue-950',
       descClass: 'text-blue-700/80',
     };
-    static defaults = { title: 'Gráfico de Barras', width: 'col-span-6', height: 300 };
+    static defaults = { title: 'Gráfico de Barras', width: 'md:col-span-6', height: 300 };
 
     static FIELD_HORIZONTAL = { key: 'horizontal', label: 'Horizontal', type: 'checkbox' };
 

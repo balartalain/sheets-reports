@@ -9,7 +9,7 @@
       titleClass: 'text-slate-950',
       descClass: 'text-slate-700/80',
     };
-    static defaults = { title: 'Widget', width: 'col-span-6', height: 300 };
+    static defaults = { title: 'Widget', width: 'md:col-span-6', height: 300 };
     static minHeight = 150;
 
     static FIELD_TITLE = { key: 'title', label: 'Título', type: 'text' };
@@ -29,12 +29,12 @@
       label: 'Ancho',
       type: 'select',
       options: [
-        { value: 'col-span-2', label: '17%' },
-        { value: 'col-span-3', label: '25%' },
-        { value: 'col-span-4', label: '33%' },
-        { value: 'col-span-6', label: '50%' },
-        { value: 'col-span-8', label: '66%' },
-        { value: 'col-span-12', label: '100%' },
+        { value: 'md:col-span-2', label: '17%' },
+        { value: 'md:col-span-3', label: '25%' },
+        { value: 'md:col-span-4', label: '33%' },
+        { value: 'md:col-span-6', label: '50%' },
+        { value: 'md:col-span-8', label: '66%' },
+        { value: 'md:col-span-12', label: '100%' },
       ],
     };
 
@@ -67,7 +67,7 @@
     }
 
     static _parseSpan(widthClass) {
-      const m = /col-span-(\d+)/.exec(widthClass);
+      const m = /md:col-span-(\d+)/.exec(widthClass);
       return m ? parseInt(m[1], 10) : 6;
     }
 
@@ -139,7 +139,7 @@
 
     buildStandardCardElement() {
       const el = document.createElement('div');
-      el.className = `${this.width}${this.startCol ? ' ' + this.startCol : ''} bg-white border border-line rounded-xl shadow-sm p-4 flex flex-col justify-between relative group`;
+      el.className = `col-span-12 ${this.width}${this.startCol ? ' ' + this.startCol : ''} bg-white border border-line rounded-xl shadow-sm p-4 flex flex-col justify-between relative group`;
       el.style.height = this.height + 'px';
       el.style.setProperty('--ghost-span', this._ghostSpanFromWidth());
       el.dataset.widgetId = this.id;
@@ -176,7 +176,7 @@
 
     buildReadOnlyElement() {
       const el = document.createElement('div');
-      el.className = `${this.width}${this.startCol ? ' ' + this.startCol : ''} bg-white border border-line rounded-xl shadow-sm p-4 flex flex-col justify-between relative`;
+      el.className = `col-span-12 ${this.width}${this.startCol ? ' ' + this.startCol : ''} bg-white border border-line rounded-xl shadow-sm p-4 flex flex-col justify-between relative`;
       el.style.height = this.height + 'px';
       el.dataset.widgetId = this.id;
       el.dataset.type = this.chart_type;
@@ -214,8 +214,7 @@
       const titleEl = this.el.querySelector('.title-display');
       if (titleEl) titleEl.textContent = this.title;
 
-      Array.from(this.el.classList).filter(c => c.startsWith('col-start-')).forEach(c => this.el.classList.remove(c));
-      ['col-span-3', 'col-span-4', 'col-span-6', 'col-span-8', 'col-span-12'].forEach(c => this.el.classList.remove(c));
+      Array.from(this.el.classList).filter(c => c.startsWith('col-start-') || c.startsWith('md:col-span-')).forEach(c => this.el.classList.remove(c));
       this.el.classList.add(this.width);
       if (this.startCol) this.el.classList.add(this.startCol);
       this.el.style.height = this.height + 'px';

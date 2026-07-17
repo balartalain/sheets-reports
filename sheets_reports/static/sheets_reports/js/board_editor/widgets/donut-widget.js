@@ -9,7 +9,7 @@
       titleClass: 'text-rose-950',
       descClass: 'text-rose-700/80',
     };
-    static defaults = { title: 'Gráfico de Dona', width: 'col-span-4', height: 300 };
+    static defaults = { title: 'Gráfico de Dona', width: 'md:col-span-4', height: 300 };
 
     static mockData() {
       return {

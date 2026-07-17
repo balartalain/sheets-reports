@@ -9,7 +9,7 @@
       titleClass: 'text-purple-950',
       descClass: 'text-purple-700/80',
     };
-    static defaults = { title: 'Gráfico de Líneas', width: 'col-span-6', height: 300 };
+    static defaults = { title: 'Gráfico de Líneas', width: 'md:col-span-6', height: 300 };
 
     static mockData() {
       return {
