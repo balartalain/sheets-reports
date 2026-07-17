@@ -69,6 +69,8 @@ def resumen_por_recinto(request, widget):
             }
             for recinto, cantidad in conteo.items()
         ]
+        if rows:
+            rows.append({"Recinto": "Total", "Cantidad": total, "Porcentaje": "100%"})
 
     return JsonResponse({"columns": columns, "rows": rows})
 

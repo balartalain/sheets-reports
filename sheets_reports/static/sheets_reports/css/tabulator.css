@@ -43,7 +43,7 @@
 }
 .tabulator .tabulator-row.tabulator-row-bold {
   font-weight: bold;
-  background-color: var(--color-header);
+  background-color: var(--color-header) !important;
 }
 .tabulator .tabulator-row.tabulator-row-bold .tabulator-cell{
   color: #fff;
