@@ -18,6 +18,7 @@
         this.FIELD_HORIZONTAL,
         { key: 'yAxisWidth', label: 'Ancho del Eje Y (px)', type: 'number', min: 100, step: 10 },
         { key: 'stacked', label: 'Apilado', type: 'checkbox' },
+        { key: 'dataLabelFormatter', label: 'Formato de Etiquetas de Datos. Ej. {value} %', type: 'text' },
       ];
     }
 
@@ -33,6 +34,7 @@
       this.horizontal = raw.horizontal ?? false;
       this.yAxisWidth = raw.yAxisWidth;
       this.stacked = raw.stacked ?? false;
+      this.dataLabelFormatter = raw.dataLabelFormatter;
     }
 
     buildElement() {
@@ -40,7 +42,12 @@
     }
 
     getProperties() {
-      return { ...super.getProperties(), horizontal: this.horizontal, yAxisWidth: this.yAxisWidth, stacked: this.stacked };
+      return { ...super.getProperties(),
+        horizontal: this.horizontal,
+        yAxisWidth: this.yAxisWidth,
+        stacked: this.stacked,
+        dataLabelFormatter: this.dataLabelFormatter
+      };
     }
 
     renderContent(container, data) {
@@ -56,6 +63,9 @@
         grid: { padding: { bottom: 25 } },
         dataLabels: {
           enabled: true,
+          formatter: (val) => {
+            return this.dataLabelFormatter ? this.dataLabelFormatter.replace('{value}', val) : val;
+          },
           style: {
             fontSize: '11px',
             colors: ['#fff'],
