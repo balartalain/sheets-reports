@@ -20,6 +20,14 @@ def get_credentials():
     return Credentials.from_service_account_file(path, scopes=SCOPES)
 
 
+def list_worksheet_titles(source_url: str) -> list[str]:
+    """Retorna los títulos de todas las pestañas del spreadsheet."""
+    creds = get_credentials()
+    client = gspread.authorize(creds)
+    spreadsheet = client.open_by_url(source_url)
+    return [ws.title for ws in spreadsheet.worksheets()]
+
+
 def fetch_sheet_as_dataframe(source_url: str, sheet_name: str | None = None) -> pd.DataFrame:
     """
     Conecta a una hoja de Google Sheets y retorna sus datos como DataFrame.

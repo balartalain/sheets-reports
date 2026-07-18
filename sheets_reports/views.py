@@ -8,6 +8,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from sheets_reports.models import Dashboard, WidgetInstance
+from sheets_reports.utils.gemini_client import generate_widget_code as generate_code_from_prompt
 from sheets_reports.utils.widget_dispatcher import dispatch_widget
 
 
@@ -59,7 +60,7 @@ def dashboard_widgets(request, dashboard_id):
 
     if request.method == "GET":
         widgets = dashboard.widgets.all().values(
-            "id", "title", "chart_type", "function_path", "properties", "order"
+            "id", "title", "chart_type", "function_path", "code", "prompt", "properties", "order"
         )
         return JsonResponse(list(widgets), safe=False)
 
@@ -70,6 +71,8 @@ def dashboard_widgets(request, dashboard_id):
             title=data.get("title", ""),
             chart_type=data.get("chart_type", "bar"),
             function_path=data.get("function_path", ""),
+            code=data.get("code", ""),
+            prompt=data.get("prompt", ""),
             properties=data.get("properties", {}),
             order=data.get("order", 0),
         )
@@ -78,6 +81,8 @@ def dashboard_widgets(request, dashboard_id):
             "title": widget.title,
             "chart_type": widget.chart_type,
             "function_path": widget.function_path,
+            "code": widget.code,
+            "prompt": widget.prompt,
             "properties": widget.properties,
             "order": widget.order,
         }, status=201)
@@ -100,7 +105,7 @@ def widget_detail(request, widget_id):
 
     try:
         data = _get_request_data(request)
-        for field in ("title", "chart_type", "function_path", "properties", "order"):
+        for field in ("title", "chart_type", "function_path", "code", "prompt", "properties", "order"):
             if field in data:
                 setattr(widget, field, data[field])
         widget.save()
@@ -109,6 +114,8 @@ def widget_detail(request, widget_id):
             "title": widget.title,
             "chart_type": widget.chart_type,
             "function_path": widget.function_path,
+            "code": widget.code,
+            "prompt": widget.prompt,
             "properties": widget.properties,
             "order": widget.order,
         })
@@ -135,6 +142,37 @@ def dashboard_filters(request, board_id):
     request.session.modified = True
 
     return JsonResponse({"ok": True})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def generate_widget_code(request, dashboard_id):
+    """POST: genera código Python para un widget a partir de un prompt en lenguaje natural, vía Gemini."""
+    try:
+        dashboard = Dashboard.objects.get(id=dashboard_id)
+    except Dashboard.DoesNotExist:
+        return JsonResponse({"error": "Dashboard no encontrado"}, status=404)
+
+    data = _get_request_data(request)
+    prompt = (data.get("prompt") or "").strip()
+    if not prompt:
+        return JsonResponse({"error": "prompt requerido"}, status=400)
+
+    # El chart_type se saca de la BD cuando el widget ya existe (fuente de verdad); si es un
+    # widget nuevo que aún no se guardó, no hay fila en la BD y se usa el que mande el frontend.
+    chart_type = data.get("chart_type", "")
+    widget_id = data.get("widget_id")
+    if widget_id:
+        widget = WidgetInstance.objects.filter(id=widget_id, dashboard_id=dashboard_id).first()
+        if widget:
+            chart_type = widget.chart_type
+
+    try:
+        code = generate_code_from_prompt(prompt, dashboard, chart_type=chart_type)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"code": code})
 
 
 def widget_functions(request, board_slug):

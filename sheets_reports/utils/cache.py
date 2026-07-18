@@ -1,7 +1,7 @@
 import pandas as pd
 from django.core.cache import cache
 
-from .google_sheets import fetch_sheet_as_dataframe
+from .google_sheets import fetch_sheet_as_dataframe, list_worksheet_titles
 
 CACHE_TIMEOUT = 300  # 5 minutos
 
@@ -24,6 +24,19 @@ def get_cached_df(dashboard, sheet_name: str | None = None) -> pd.DataFrame:
     df = fetch_sheet_as_dataframe(dashboard.source_url, sheet_name)
     cache.set(cache_key, df, CACHE_TIMEOUT)
     return df
+
+
+def get_cached_sheet_titles(dashboard) -> list[str]:
+    """Retorna los títulos de las pestañas del spreadsheet del dashboard, cacheados."""
+    cache_key = f"sheet_titles_{dashboard.id}"
+
+    titles = cache.get(cache_key)
+    if titles is not None:
+        return titles
+
+    titles = list_worksheet_titles(dashboard.source_url)
+    cache.set(cache_key, titles, CACHE_TIMEOUT)
+    return titles
 
 
 def invalidate_dashboard_cache(dashboard_id: int):

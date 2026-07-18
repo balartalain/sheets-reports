@@ -1,3 +1,4 @@
+import builtins
 import importlib
 import logging
 
@@ -6,6 +7,17 @@ from django.http import JsonResponse
 from sheets_reports.models import WidgetInstance
 
 logger = logging.getLogger(__name__)
+
+# Whitelist de builtins seguros disponibles para el código de widget generado por IA.
+# Deliberadamente excluye open, __import__, exec, eval, compile, etc.
+_SAFE_BUILTIN_NAMES = (
+    "abs", "all", "any", "bool", "dict", "enumerate", "filter", "float",
+    "int", "len", "list", "map", "max", "min", "range", "repr", "reversed",
+    "round", "set", "sorted", "str", "sum", "tuple", "zip", "print",
+    "isinstance", "None", "True", "False",
+    "Exception", "ValueError", "KeyError", "TypeError", "StopIteration",
+)
+SAFE_BUILTINS = {name: getattr(builtins, name) for name in _SAFE_BUILTIN_NAMES if hasattr(builtins, name)}
 
 
 def _import_function(func_name: str, board_slug: str):
@@ -60,6 +72,57 @@ def apply_active_filters(df, request, widget):
     return df
 
 
+def _build_exec_namespace():
+    """
+    Contexto disponible para el código Python guardado en widget.code (generado por IA).
+    Expone las mismas utilidades que ya usan las funciones basadas en archivo, para que
+    el código generado no necesite (ni pueda) hacer imports propios.
+    """
+    import pandas as pd
+
+    from sheets_reports.utils.cache import get_cached_df
+    from sheets_reports.utils.chart_helpers import distribucion_por_respuesta
+    from sheets_reports.utils.table_helpers import tabla_conteo_por_respuesta
+
+    return {
+        "__builtins__": SAFE_BUILTINS,
+        "pd": pd,
+        "get_cached_df": get_cached_df,
+        "apply_active_filters": apply_active_filters,
+        "get_active_filters": get_active_filters,
+        "distribucion_por_respuesta": distribucion_por_respuesta,
+        "tabla_conteo_por_respuesta": tabla_conteo_por_respuesta,
+        "JsonResponse": JsonResponse,
+    }
+
+
+def execute_widget_code(code: str, request, widget) -> JsonResponse:
+    """
+    Ejecuta el código Python guardado en widget.code. El código debe definir
+    `def run(request, widget):` que retorna un JsonResponse (misma convención de
+    retorno que las funciones basadas en archivo).
+    """
+    namespace = _build_exec_namespace()
+    try:
+        exec(code, namespace)
+    except Exception as e:
+        logger.exception("Error al compilar el código del widget %s", widget.id)
+        return JsonResponse({"error": f"Error en el código del widget: {e}"}, status=500)
+
+    run = namespace.get("run")
+    if not callable(run):
+        return JsonResponse(
+            {"error": "El código del widget debe definir una función run(request, widget)."},
+            status=500,
+        )
+
+    try:
+        return run(request, widget)
+    except Exception as e:
+        logger.exception("Error al ejecutar el código del widget %s", widget.id)
+        return JsonResponse({"error": str(e)}, status=500)
+
+
 def dispatch_widget(request, widget_id: int) -> JsonResponse:
     """
     Obtiene el widget, importa el módulo desde widget.function_path,
@@ -78,6 +141,9 @@ def dispatch_widget(request, widget_id: int) -> JsonResponse:
         widget = WidgetInstance.objects.select_related("dashboard").get(id=widget_id)
     except WidgetInstance.DoesNotExist:
         return JsonResponse({"error": "Widget no encontrado"}, status=404)
+
+    if widget.code:
+        return execute_widget_code(widget.code, request, widget)
 
     module, func_name, error = _import_function(widget.function_path, widget.dashboard.functions_slug)
     if error:

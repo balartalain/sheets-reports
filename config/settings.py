@@ -126,3 +126,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Google Sheets
 GOOGLE_SHEETS_CREDENTIALS_PATH = config("GOOGLE_SHEETS_CREDENTIALS_PATH", default="")
+
+# Gemini (generación de código de widgets vía IA)
+GEMINI_API_KEY = config("GEMINI_API_KEY", default="")

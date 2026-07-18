@@ -129,7 +129,17 @@ class WidgetInstance(models.Model):
     function_path = models.CharField(
         max_length=255,
         default="",
-        help_text="Nombre de la función del servidor definida en server_functions/<slug del tablero>/functions.py (ej. 'total_ventas').",
+        help_text="Nombre de la función del servidor definida en server_functions/<slug del tablero>/functions.py (ej. 'total_ventas'). Se usa solo si `code` está vacío.",
+    )
+    code = models.TextField(
+        blank=True,
+        default="",
+        help_text="Código Python ejecutado por el widget (debe definir `def run(request, widget):` que retorna un JsonResponse). Si está vacío, se usa function_path.",
+    )
+    prompt = models.TextField(
+        blank=True,
+        default="",
+        help_text="Último prompt en lenguaje natural usado para generar `code` vía IA.",
     )
     properties = models.JSONField(
         default=dict,

@@ -6,6 +6,8 @@ document.addEventListener('alpine:init', () => {
     dashboardId: window.DASHBOARD_ID,
     availableFunctions: [],
     drawerDraft: {},
+    drawerGenerating: false,
+    drawerGenerateError: '',
     _nextId: -1,
 
     get flatFunctions() {
@@ -28,6 +30,8 @@ document.addEventListener('alpine:init', () => {
           id: w.id,
           title: w.title,
           functionPath: w.function_path || '',
+          prompt: w.prompt || '',
+          code: w.code || '',
           order: w.order ?? 0,
           ...(w.properties || {}),
         }));
@@ -115,6 +119,31 @@ document.addEventListener('alpine:init', () => {
       this.editingId = null;
       this.editingType = null;
       this.drawerDraft = {};
+      this.drawerGenerateError = '';
+    },
+
+    async generateWidgetCode() {
+      if (!this.drawerDraft.prompt) return;
+      this.drawerGenerating = true;
+      this.drawerGenerateError = '';
+      try {
+        const r = await fetch(`/api/dashboard/${this.dashboardId}/generate-widget-code/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: this.drawerDraft.prompt,
+            widget_id: this.editingId > 0 ? this.editingId : null,
+            chart_type: this.editingType,
+          }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'Error generando código');
+        this.drawerDraft.code = data.code;
+      } catch (e) {
+        this.drawerGenerateError = e.message;
+      } finally {
+        this.drawerGenerating = false;
+      }
     },
 
     async saveDrawer() {

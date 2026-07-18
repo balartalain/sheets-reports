@@ -14,9 +14,22 @@
 
     static FIELD_TITLE = { key: 'title', label: 'Título', type: 'text' };
 
+    static FIELD_PROMPT = {
+      key: 'prompt',
+      label: 'Descripción para IA',
+      type: 'textarea',
+      generatable: true,
+    };
+
+    static FIELD_CODE = {
+      key: 'code',
+      label: 'Código generado (editable)',
+      type: 'code',
+    };
+
     static FIELD_FUNCTION_PATH = {
       key: 'functionPath',
-      label: 'Función del servidor',
+      label: 'Función del servidor (avanzado)',
       type: 'select',
       optionsSource: 'flatFunctions',
       optionValueKey: 'path',
@@ -63,7 +76,10 @@
     };
 
     static get drawerFields() {
-      return [this.FIELD_TITLE, this.FIELD_FUNCTION_PATH, this.FIELD_WIDTH, this.FIELD_HEIGHT, this.FIELD_START_COL];
+      return [
+        this.FIELD_TITLE, this.FIELD_PROMPT, this.FIELD_CODE, this.FIELD_FUNCTION_PATH,
+        this.FIELD_WIDTH, this.FIELD_HEIGHT, this.FIELD_START_COL,
+      ];
     }
 
     static _parseSpan(widthClass) {
@@ -141,6 +157,8 @@
       this.title = raw.title ?? defaults.title;
       this.chart_type = this.constructor.type;
       this.functionPath = raw.functionPath || '';
+      this.prompt = raw.prompt || '';
+      this.code = raw.code || '';
       this.width = raw.width || defaults.width;
       this.height = raw.height ?? defaults.height;
       this.startCol = raw.startCol
@@ -266,6 +284,8 @@
         title: this.title,
         chart_type: this.chart_type,
         function_path: this.functionPath,
+        prompt: this.prompt,
+        code: this.code,
         properties: this.getProperties(),
         order: this.order,
       };
@@ -297,7 +317,7 @@
 
     async fetchAndRender() {
       if (this.id < 0) return;
-      if (!this.functionPath) {
+      if (!this.functionPath && !this.code) {
         const container = this.getContentContainer();
         if (container) this.renderContent(container);
         return;
