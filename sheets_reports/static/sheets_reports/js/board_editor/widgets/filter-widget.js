@@ -12,8 +12,16 @@
     };
     static defaults = { title: 'Filtro', width: 'md:col-span-4' };
 
+    static FIELD_FILTER_FIELD = {
+      key: 'filterField',
+      label: 'Campo a filtrar (nombre exacto de la columna)',
+      type: 'text',
+    };
+
     static get drawerFields() {
-      return super.drawerFields.filter(field => field.key !== 'height');
+      const base = super.drawerFields.filter(field => field.key !== 'height');
+      const titleIdx = base.findIndex(f => f.key === 'title');
+      return [...base.slice(0, titleIdx + 1), this.FIELD_FILTER_FIELD, ...base.slice(titleIdx + 1)];
     }
 
     static mockData() {
@@ -22,7 +30,12 @@
 
     constructor(raw) {
       super(raw);
+      this.filterField = raw.filterField || '';
       this._selectedValue = '';
+    }
+
+    getProperties() {
+      return { ...super.getProperties(), filterField: this.filterField };
     }
 
     buildElement() {
@@ -95,18 +108,18 @@
     }
 
     async _onFilterChange(value) {
-      if (!this.title) return;
+      if (!this.filterField) return;
       const dashboardId = Alpine.store('dashboard').dashboardId;
       try {
         await fetch(`/api/dashboard/${dashboardId}/filters/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ field: this.title, value }),
+          body: JSON.stringify({ field: this.filterField, value }),
         });
       } catch (e) {
         // silencioso, igual que el resto de las llamadas fetch en este archivo
       }
-      window.dispatchEvent(new CustomEvent('dashboard:filters-changed', { detail: { field: this.title, value } }));
+      window.dispatchEvent(new CustomEvent('dashboard:filters-changed', { detail: { field: this.filterField, value } }));
     }
   }
 

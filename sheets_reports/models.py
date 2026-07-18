@@ -162,3 +162,9 @@ class WidgetInstance(models.Model):
 
     def __str__(self):
         return self.title or f"{self.get_chart_type_display()} ({self.id})"
+
+    @property
+    def filter_field(self):
+        """Nombre exacto de columna a filtrar (solo widgets chart_type='filter'), configurado
+        por el usuario en el drawer y guardado en properties.filterField."""
+        return (self.properties or {}).get("filterField", "")

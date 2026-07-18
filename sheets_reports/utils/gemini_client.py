@@ -26,6 +26,10 @@ No hagas ningún `import`: ya tienes disponibles, inyectados en el contexto de e
 - apply_active_filters(df, request, widget) -> DataFrame (aplica los filtros activos del
   tablero, comparando cada filtro contra la columna del mismo nombre)
 - get_active_filters(request, widget) -> dict
+- widget.filter_field -> str (SOLO para widgets con chart_type="filter": nombre exacto de la
+  columna que este filtro debe controlar, ya configurado por el usuario. Úsalo así:
+  active_filters.get(widget.filter_field, None) para obtener el valor actualmente
+  seleccionado. No inventes otros nombres como widget.field_name o widget.title para esto.)
 - distribucion_por_respuesta(df, columna_categoria, columna_valor, excluir=()) -> dict
   (agrupa y arma el shape de bar/line/donut)
 - tabla_conteo_por_respuesta(df, columna_categoria, columna_valor, excluir=()) -> dict
