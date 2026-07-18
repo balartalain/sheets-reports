@@ -40,6 +40,16 @@ class Dashboard(models.Model):
         related_name="dashboards",
         help_text="Usuario propietario del tablero.",
     )
+    shared_code = models.TextField(
+        blank=True,
+        default="",
+        help_text="Código Python compartido por todos los widgets del tablero (funciones reutilizables, ej. columnas calculadas). Se inyecta en el exec() de cada widget antes de su propio código.",
+    )
+    shared_code_prompt = models.TextField(
+        blank=True,
+        default="",
+        help_text="Último prompt usado para generar shared_code vía IA.",
+    )
     created_at = models.DateTimeField(
         auto_now_add=True,
         help_text="Fecha y hora de creación del tablero.",

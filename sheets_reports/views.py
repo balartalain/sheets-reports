@@ -9,6 +9,7 @@ from django.views.decorators.http import require_http_methods
 
 from sheets_reports.models import Dashboard, WidgetInstance
 from sheets_reports.utils.gemini_client import generate_widget_code as generate_code_from_prompt
+from sheets_reports.utils.gemini_client import generate_shared_code as generate_shared_code_from_prompt
 from sheets_reports.utils.widget_dispatcher import dispatch_widget
 
 
@@ -167,8 +168,60 @@ def generate_widget_code(request, dashboard_id):
         if widget:
             chart_type = widget.chart_type
 
+    existing_code = data.get("existing_code", "")
+
     try:
-        code = generate_code_from_prompt(prompt, dashboard, chart_type=chart_type)
+        code = generate_code_from_prompt(prompt, dashboard, chart_type=chart_type, existing_code=existing_code)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"code": code})
+
+
+@csrf_exempt
+@require_http_methods(["GET", "PUT"])
+def dashboard_shared_code(request, dashboard_id):
+    """GET: retorna el código compartido del tablero. PUT: lo actualiza."""
+    try:
+        dashboard = Dashboard.objects.get(id=dashboard_id)
+    except Dashboard.DoesNotExist:
+        return JsonResponse({"error": "Dashboard no encontrado"}, status=404)
+
+    if request.method == "GET":
+        return JsonResponse({
+            "shared_code": dashboard.shared_code,
+            "shared_code_prompt": dashboard.shared_code_prompt,
+        })
+
+    data = _get_request_data(request)
+    if "shared_code" in data:
+        dashboard.shared_code = data["shared_code"]
+    if "shared_code_prompt" in data:
+        dashboard.shared_code_prompt = data["shared_code_prompt"]
+    dashboard.save()
+    return JsonResponse({
+        "shared_code": dashboard.shared_code,
+        "shared_code_prompt": dashboard.shared_code_prompt,
+    })
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def generate_shared_code(request, dashboard_id):
+    """POST: genera código Python compartido del tablero a partir de un prompt, vía Gemini."""
+    try:
+        dashboard = Dashboard.objects.get(id=dashboard_id)
+    except Dashboard.DoesNotExist:
+        return JsonResponse({"error": "Dashboard no encontrado"}, status=404)
+
+    data = _get_request_data(request)
+    prompt = (data.get("prompt") or "").strip()
+    if not prompt:
+        return JsonResponse({"error": "prompt requerido"}, status=400)
+    existing_code = data.get("existing_code", "")
+
+    try:
+        code = generate_shared_code_from_prompt(prompt, dashboard, existing_code=existing_code)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 

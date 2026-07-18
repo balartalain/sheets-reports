@@ -53,6 +53,40 @@ get_cached_df(widget.dashboard, sheet_name='<nombre exacto>'). Si el usuario men
 pestaña que no coincide con la de la muestra (typo, nombre parcial, etc.), usa igual el nombre
 que dio el usuario en get_cached_df(...) e infiere las columnas razonablemente a partir de su
 descripción, ya que no tienes la estructura real de esa pestaña.
+
+Si el tablero tiene código compartido (funciones reutilizables entre widgets, ej. columnas
+calculadas), se te muestra tal cual más abajo — YA está disponible en el contexto de ejecución,
+no lo redefinas ni lo copies: solo llamá las funciones que necesites (ej. add_nivel_column(df)).
+
+Tu respuesta debe ser SIEMPRE la función run(request, widget) completa y final, no un fragmento.
+Si se te muestra el código ya existente de este widget, conservá su lógica salvo lo que el
+prompt pida cambiar explícitamente, y modificá únicamente eso.
+"""
+
+
+SHARED_CODE_SYSTEM_INSTRUCTION = """\
+Eres un generador de código Python de utilidades compartidas para un dashboard de reportes.
+
+Debes responder ÚNICAMENTE con código Python (sin explicación, sin markdown, sin ```), que
+defina una o más funciones reutilizables (ej. una columna calculada) que el código de otros
+widgets de este mismo tablero podrá llamar explícitamente.
+
+No definas `def run(request, widget):` — esto NO es un widget, son utilidades puras. Ejemplo de
+forma esperada:
+
+    def add_nivel_column(df):
+        ...
+        df["Nivel"] = ...
+        return df
+
+No hagas ningún `import`: solo tenés disponible `pd` (pandas) en el contexto de ejecución.
+No uses `open`, `os`, `subprocess`, `__import__`, `eval`, `exec`, ni accedas a atributos dunder.
+Las funciones que definas deben ser defensivas (ej. verificar que una columna exista antes de
+usarla) ya que se van a llamar desde distintos widgets con distintos DataFrames.
+
+Tu respuesta debe ser SIEMPRE el código compartido completo y final, no un fragmento aislado.
+Si se te muestra código ya existente, conservá sin cambios las funciones que el prompt no pide
+tocar, y modificá o agregá únicamente lo que el prompt pida.
 """
 
 
@@ -98,32 +132,16 @@ def _strip_markdown_fences(code: str) -> str:
     return code.strip()
 
 
-def generate_widget_code(prompt: str, dashboard, chart_type: str = "") -> str:
-    """
-    Genera código Python para un widget a partir de una descripción en lenguaje natural,
-    usando Gemini. `chart_type` (bar/line/donut/kpi/table/filter) es opcional: si se conoce
-    (ej. leído del widget en la BD), se le indica explícitamente a Gemini; si no, Gemini lo
-    infiere de la descripción. Retorna el código listo para guardar en WidgetInstance.code.
-    """
+def _call_gemini(full_prompt: str, system_instruction: str) -> str:
     api_key = settings.GEMINI_API_KEY
     if not api_key:
         raise ValueError("GEMINI_API_KEY no está configurado en .env")
-
-    sample_context = _build_sample_context(dashboard, prompt)
-
-    chart_type_line = f"Tipo de widget (chart_type): {chart_type}\n\n" if chart_type else ""
-    full_prompt = (
-        f"{chart_type_line}"
-        f"Estructura de muestra del spreadsheet de este tablero:\n"
-        f"{sample_context}\n\n"
-        f"Descripción del usuario:\n{prompt}"
-    )
 
     client = genai.Client(api_key=api_key)
     response = client.models.generate_content(
         model=DEFAULT_MODEL,
         contents=full_prompt,
-        config={"system_instruction": SYSTEM_INSTRUCTION},
+        config={"system_instruction": system_instruction},
     )
 
     code = (response.text or "").strip()
@@ -131,3 +149,61 @@ def generate_widget_code(prompt: str, dashboard, chart_type: str = "") -> str:
         raise ValueError("Gemini no devolvió código.")
 
     return _strip_markdown_fences(code)
+
+
+def generate_widget_code(prompt: str, dashboard, chart_type: str = "", existing_code: str = "") -> str:
+    """
+    Genera (o modifica) código Python para un widget a partir de una descripción en lenguaje
+    natural, usando Gemini. `chart_type` (bar/line/donut/kpi/table/filter) es opcional: si se
+    conoce (ej. leído del widget en la BD), se le indica explícitamente a Gemini; si no, Gemini
+    lo infiere de la descripción. `existing_code`, si se pasa, es el código actual del widget
+    (ej. el draft del textarea): se le muestra a Gemini para que pueda hacer un cambio puntual
+    sin perder el resto de la lógica. Retorna el código completo, listo para guardar en
+    WidgetInstance.code.
+    """
+    sample_context = _build_sample_context(dashboard, prompt)
+
+    chart_type_line = f"Tipo de widget (chart_type): {chart_type}\n\n" if chart_type else ""
+    shared_code_block = (
+        f"Código compartido del tablero (ya disponible, no lo redefinas):\n{dashboard.shared_code}\n\n"
+        if dashboard.shared_code else ""
+    )
+    existing_code_block = (
+        f"Código YA existente de este widget (modificalo si el prompt lo pide; si no, dejalo "
+        f"tal cual en tu respuesta):\n{existing_code}\n\n"
+        if existing_code else ""
+    )
+    full_prompt = (
+        f"{chart_type_line}"
+        f"{shared_code_block}"
+        f"{existing_code_block}"
+        f"Estructura de muestra del spreadsheet de este tablero:\n"
+        f"{sample_context}\n\n"
+        f"Descripción del usuario:\n{prompt}"
+    )
+
+    return _call_gemini(full_prompt, SYSTEM_INSTRUCTION)
+
+
+def generate_shared_code(prompt: str, dashboard, existing_code: str = "") -> str:
+    """
+    Genera (o modifica) código Python de utilidades compartidas por todos los widgets del
+    tablero (ej. columnas calculadas), usando Gemini. `existing_code`, si se pasa, es el código
+    compartido actual (ej. el draft del textarea, con ediciones aún no guardadas): se le muestra
+    a Gemini para que pueda modificar una función puntual sin perder el resto. Retorna el código
+    completo y final, listo para guardar en Dashboard.shared_code.
+    """
+    sample_context = _build_sample_context(dashboard, prompt)
+    existing_code_block = (
+        f"Código compartido YA existente en este tablero (modificalo si el prompt lo pide; si "
+        f"no, dejalo tal cual en tu respuesta):\n{existing_code}\n\n"
+        if existing_code else ""
+    )
+    full_prompt = (
+        f"{existing_code_block}"
+        f"Estructura de muestra del spreadsheet de este tablero:\n"
+        f"{sample_context}\n\n"
+        f"Descripción del usuario:\n{prompt}"
+    )
+
+    return _call_gemini(full_prompt, SHARED_CODE_SYSTEM_INSTRUCTION)

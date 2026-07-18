@@ -8,6 +8,10 @@ document.addEventListener('alpine:init', () => {
     drawerDraft: {},
     drawerGenerating: false,
     drawerGenerateError: '',
+    sharedCodeOpen: false,
+    sharedCodeDraft: { prompt: '', code: '' },
+    sharedCodeGenerating: false,
+    sharedCodeGenerateError: '',
     _nextId: -1,
 
     get flatFunctions() {
@@ -18,6 +22,14 @@ document.addEventListener('alpine:init', () => {
       try {
         const r = await fetch(`/api/widget-functions/${window.DASHBOARD_SLUG}/`);
         this.availableFunctions = await r.json();
+      } catch (e) {}
+    },
+
+    async loadSharedCode() {
+      try {
+        const r = await fetch(`/api/dashboard/${this.dashboardId}/shared-code/`);
+        const data = await r.json();
+        this.sharedCodeDraft = { prompt: data.shared_code_prompt || '', code: data.shared_code || '' };
       } catch (e) {}
     },
 
@@ -134,6 +146,7 @@ document.addEventListener('alpine:init', () => {
             prompt: this.drawerDraft.prompt,
             widget_id: this.editingId > 0 ? this.editingId : null,
             chart_type: this.editingType,
+            existing_code: this.drawerDraft.code,
           }),
         });
         const data = await r.json();
@@ -160,6 +173,52 @@ document.addEventListener('alpine:init', () => {
 
     fetchWidgetData(w) {
       return w.fetchAndRender();
+    },
+
+    openSharedCodePanel() {
+      this.sharedCodeOpen = true;
+    },
+
+    closeSharedCodePanel() {
+      this.sharedCodeOpen = false;
+      this.sharedCodeGenerateError = '';
+    },
+
+    async generateSharedCode() {
+      if (!this.sharedCodeDraft.prompt) return;
+      this.sharedCodeGenerating = true;
+      this.sharedCodeGenerateError = '';
+      try {
+        const r = await fetch(`/api/dashboard/${this.dashboardId}/generate-shared-code/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: this.sharedCodeDraft.prompt,
+            existing_code: this.sharedCodeDraft.code,
+          }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'Error generando código');
+        this.sharedCodeDraft.code = data.code;
+      } catch (e) {
+        this.sharedCodeGenerateError = e.message;
+      } finally {
+        this.sharedCodeGenerating = false;
+      }
+    },
+
+    async saveSharedCode() {
+      try {
+        await fetch(`/api/dashboard/${this.dashboardId}/shared-code/`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            shared_code: this.sharedCodeDraft.code,
+            shared_code_prompt: this.sharedCodeDraft.prompt,
+          }),
+        });
+      } catch (e) {}
+      this.closeSharedCodePanel();
     },
   });
 });

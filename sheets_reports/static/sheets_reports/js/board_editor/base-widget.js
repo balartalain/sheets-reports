@@ -23,7 +23,7 @@
 
     static FIELD_CODE = {
       key: 'code',
-      label: 'Código generado (editable)',
+      label: 'Código generado',
       type: 'code',
     };
 

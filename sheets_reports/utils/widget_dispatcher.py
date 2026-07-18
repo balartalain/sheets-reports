@@ -2,6 +2,7 @@ import builtins
 import importlib
 import logging
 
+from django.core.serializers.json import DjangoJSONEncoder
 from django.http import JsonResponse
 
 from sheets_reports.models import WidgetInstance
@@ -18,6 +19,40 @@ _SAFE_BUILTIN_NAMES = (
     "Exception", "ValueError", "KeyError", "TypeError", "StopIteration",
 )
 SAFE_BUILTINS = {name: getattr(builtins, name) for name in _SAFE_BUILTIN_NAMES if hasattr(builtins, name)}
+
+
+class _NumpyPandasJSONEncoder(DjangoJSONEncoder):
+    """
+    Serializa tipos de numpy/pandas que el código de widgets suele producir sin darse cuenta
+    (ej. df.groupby(...).sum() retorna numpy.int64, no un int nativo). Sin esto, cualquier
+    widget que use groupby/sum/value_counts de pandas puede fallar con
+    "Object of type int64 is not JSON serializable".
+    """
+
+    def default(self, o):
+        import numpy as np
+        import pandas as pd
+
+        if isinstance(o, np.integer):
+            return int(o)
+        if isinstance(o, np.floating):
+            return float(o)
+        if isinstance(o, np.bool_):
+            return bool(o)
+        if isinstance(o, np.ndarray):
+            return o.tolist()
+        if isinstance(o, pd.Timestamp):
+            return o.isoformat()
+        if o is pd.NaT or (isinstance(o, float) and pd.isna(o)):
+            return None
+        return super().default(o)
+
+
+def _widget_json_response(data=None, **kwargs):
+    """JsonResponse inyectado en el exec() de widgets: usa un encoder que tolera tipos
+    numpy/pandas, para que el código generado no tenga que castear manualmente cada valor."""
+    kwargs.setdefault("encoder", _NumpyPandasJSONEncoder)
+    return JsonResponse(data, **kwargs)
 
 
 def _import_function(func_name: str, board_slug: str):
@@ -72,11 +107,19 @@ def apply_active_filters(df, request, widget):
     return df
 
 
-def _build_exec_namespace():
+class SharedCodeError(Exception):
+    """El código compartido del tablero (Dashboard.shared_code) no compiló."""
+
+
+def _build_exec_namespace(dashboard=None):
     """
     Contexto disponible para el código Python guardado en widget.code (generado por IA).
     Expone las mismas utilidades que ya usan las funciones basadas en archivo, para que
     el código generado no necesite (ni pueda) hacer imports propios.
+
+    Si el dashboard tiene `shared_code` (funciones reutilizables entre widgets, ej. columnas
+    calculadas), se ejecuta en este mismo namespace antes de devolverlo, para que sus funciones
+    queden disponibles cuando se ejecute el código propio del widget a continuación.
     """
     import pandas as pd
 
@@ -84,7 +127,7 @@ def _build_exec_namespace():
     from sheets_reports.utils.chart_helpers import distribucion_por_respuesta
     from sheets_reports.utils.table_helpers import tabla_conteo_por_respuesta
 
-    return {
+    namespace = {
         "__builtins__": SAFE_BUILTINS,
         "pd": pd,
         "get_cached_df": get_cached_df,
@@ -92,8 +135,16 @@ def _build_exec_namespace():
         "get_active_filters": get_active_filters,
         "distribucion_por_respuesta": distribucion_por_respuesta,
         "tabla_conteo_por_respuesta": tabla_conteo_por_respuesta,
-        "JsonResponse": JsonResponse,
+        "JsonResponse": _widget_json_response,
     }
+
+    if dashboard is not None and dashboard.shared_code:
+        try:
+            exec(dashboard.shared_code, namespace)
+        except Exception as e:
+            raise SharedCodeError(str(e)) from e
+
+    return namespace
 
 
 def execute_widget_code(code: str, request, widget) -> JsonResponse:
@@ -102,7 +153,12 @@ def execute_widget_code(code: str, request, widget) -> JsonResponse:
     `def run(request, widget):` que retorna un JsonResponse (misma convención de
     retorno que las funciones basadas en archivo).
     """
-    namespace = _build_exec_namespace()
+    try:
+        namespace = _build_exec_namespace(widget.dashboard)
+    except SharedCodeError as e:
+        logger.exception("Error al compilar el código compartido del tablero %s", widget.dashboard_id)
+        return JsonResponse({"error": f"Error en el código compartido del tablero: {e}"}, status=500)
+
     try:
         exec(code, namespace)
     except Exception as e:

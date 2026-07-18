@@ -33,4 +33,6 @@ urlpatterns = [
     path('api/widget-functions/<slug:board_slug>/', views.widget_functions, name='widget_functions'),
     path('api/dashboard/<int:board_id>/filters/', views.dashboard_filters, name='dashboard_filters'),
     path('api/dashboard/<int:dashboard_id>/generate-widget-code/', views.generate_widget_code, name='generate_widget_code'),
+    path('api/dashboard/<int:dashboard_id>/shared-code/', views.dashboard_shared_code, name='dashboard_shared_code'),
+    path('api/dashboard/<int:dashboard_id>/generate-shared-code/', views.generate_shared_code, name='generate_shared_code'),
 ]
