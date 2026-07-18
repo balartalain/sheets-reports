@@ -1,4 +1,22 @@
 (function () {
+  const MAX_CONCURRENT_FETCHES = 5;
+  let activeFetches = 0;
+  const fetchQueue = [];
+
+  function scheduleFetch(taskFn) {
+    return new Promise((resolve, reject) => {
+      const run = () => {
+        activeFetches++;
+        taskFn().then(resolve, reject).finally(() => {
+          activeFetches--;
+          if (fetchQueue.length) fetchQueue.shift()();
+        });
+      };
+      if (activeFetches < MAX_CONCURRENT_FETCHES) run();
+      else fetchQueue.push(run);
+    });
+  }
+
   class BaseWidget {
     static type = null;
     static palette = {
@@ -324,8 +342,11 @@
       }
       this.setLoading(true);
       try {
-        const r = await fetch(`/api/widget/${this.id}/data/`);
-        const data = await r.json().catch(() => null);
+        const { r, data } = await scheduleFetch(async () => {
+          const res = await fetch(`/api/widget/${this.id}/data/`);
+          const json = await res.json().catch(() => null);
+          return { r: res, data: json };
+        });
         if (!r.ok) {
           this.renderError(data && data.error ? data.error : `Error ${r.status} al cargar los datos`);
           return;
