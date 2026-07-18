@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     id: w.id,
     title: w.title,
     functionPath: w.function_path || '',
+    code: w.code || '',
     order: w.order ?? 0,
     ...(w.properties || {}),
   }));
