@@ -48,17 +48,17 @@
       type: 'select',
       options: [
         { value: '', label: 'Fluido' },
-        { value: 'col-start-1', label: 'Al inicio' },
-        { value: 'col-start-2', label: 'Dejar 1 espacio' },
-        { value: 'col-start-3', label: 'Dejar 2 espacios' },
-        { value: 'col-start-4', label: 'Dejar 3 espacios' },
-        { value: 'col-start-5', label: 'Dejar 4 espacio' },
-        { value: 'col-start-6', label: 'Dejar 5 espacios' },
-        { value: 'col-start-7', label: 'Dejar 6 espacios' },
-        { value: 'col-start-8', label: 'Dejar 7 espacios' },
-        { value: 'col-start-9', label: 'Dejar 8 espacios' },
-        { value: 'col-start-10', label: 'Dejar 9 espacios' },
-        { value: 'col-start-11', label: 'Dejar 10 espacios' },
+        { value: 'md:col-start-1', label: 'Al inicio' },
+        { value: 'md:col-start-2', label: 'Dejar 1 espacio' },
+        { value: 'md:col-start-3', label: 'Dejar 2 espacios' },
+        { value: 'md:col-start-4', label: 'Dejar 3 espacios' },
+        { value: 'md:col-start-5', label: 'Dejar 4 espacio' },
+        { value: 'md:col-start-6', label: 'Dejar 5 espacios' },
+        { value: 'md:col-start-7', label: 'Dejar 6 espacios' },
+        { value: 'md:col-start-8', label: 'Dejar 7 espacios' },
+        { value: 'md:col-start-9', label: 'Dejar 8 espacios' },
+        { value: 'md:col-start-10', label: 'Dejar 9 espacios' },
+        { value: 'md:col-start-11', label: 'Dejar 10 espacios' },
       ],
     };
 
@@ -143,7 +143,9 @@
       this.functionPath = raw.functionPath || '';
       this.width = raw.width || defaults.width;
       this.height = raw.height ?? defaults.height;
-      this.startCol = raw.startCol || '';
+      this.startCol = raw.startCol
+        ? (raw.startCol.startsWith('md:') ? raw.startCol : 'md:' + raw.startCol)
+        : '';
       this.order = raw.order ?? 0;
       this._dirty = raw._dirty ?? false;
       this._loading = false;
@@ -246,7 +248,7 @@
       const titleEl = this.el.querySelector('.title-display');
       if (titleEl) titleEl.textContent = this.title;
 
-      Array.from(this.el.classList).filter(c => c.startsWith('col-start-') || c.startsWith('md:col-span-')).forEach(c => this.el.classList.remove(c));
+      Array.from(this.el.classList).filter(c => c.startsWith('col-start-') || c.startsWith('md:col-start-') || c.startsWith('md:col-span-')).forEach(c => this.el.classList.remove(c));
       this.el.classList.add(this.width);
       if (this.startCol) this.el.classList.add(this.startCol);
       this.el.style.height = this.height + 'px';

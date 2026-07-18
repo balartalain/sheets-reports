@@ -315,6 +315,32 @@ def distribucion_nivel_satisfaccion(request, widget):
 
     return JsonResponse(distribucion_por_respuesta(df))
 
+def resumen_nivel_aprendizaje(request, widget):
+    """
+    Retorna, por Categoria, el conteo y % de cada valor de 'Respuesta'
+    ('Completamente satisfecho', 'Satisfecho', etc.), mas el total de respuestas.
+    Retorna formato compatible con Tabulator: { columns: [{title, field}], rows: [{...}] }.
+    """
+    df = get_cached_df(widget.dashboard, "Respuestas Indique el nivel de aprendizaje que usted considera ha obtenido con el uso de las siguien")
+    df = _add_nivel_column(df)
+    df = apply_active_filters(df, request, widget)
+
+    return JsonResponse(tabla_conteo_por_respuesta(df))
+
+
+def distribucion_nivel_aprendizaje(request, widget):
+    """
+    Retorna, por Categoria, el % de cada valor de 'Respuesta'
+    ('Completamente satisfecho', 'Satisfecho', etc.).
+    Retorna formato compatible con ApexCharts (grafico de barras apiladas):
+    { series: [{ name, data }], categories: [...] }.
+    """
+    df = get_cached_df(widget.dashboard, "Respuestas Indique el nivel de aprendizaje que usted considera ha obtenido con el uso de las siguien")
+    df = _add_nivel_column(df)
+    df = apply_active_filters(df, request, widget)
+
+    return JsonResponse(distribucion_por_respuesta(df))
+
 def resumen_valoracion(request, widget):
     """
     Retorna, por Categoria, el conteo y % de cada valor de 'Respuesta'
