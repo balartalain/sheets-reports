@@ -66,14 +66,14 @@
 
       if (this.chartWidth) {
         container.style.overflowX = 'scroll';
-        container.style.overflowY = 'hidden';
+        container.style.overflowY = 'scroll';
       } else {
         container.style.overflowX = '';
         container.style.overflowY = '';
       }
 
       const options = {
-        chart: { type: 'bar', stacked: this.stacked, height: '95%', width: this.chartWidth || '100%', fontFamily: 'inherit', toolbar: { show: false } },
+        chart: { type: 'bar', stacked: this.stacked, height: '90%', width: this.chartWidth || '100%', fontFamily: 'inherit', toolbar: { show: false } },
         colors: ['#2563eb', '#f5a623', '#00e1ffff', '#3965c4ff'],
         series,
         xaxis: { categories, labels: { style: { fontSize: '11px' }, maxHeight: 150 } },
@@ -82,7 +82,7 @@
             position: 'center'
           }
         }},
-        grid: { padding: { bottom: 25 } },
+        //grid: { padding: { bottom: 25 } },
         dataLabels: {
           enabled: true,
           formatter: (val) => {
