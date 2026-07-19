@@ -89,6 +89,19 @@ DATABASES = {
     )
 }
 
+# Caché compartida entre workers (Gunicorn corre varios procesos en producción).
+# Respaldada en la misma base de datos: sin esto, Django usa por defecto
+# LocMemCache (memoria local a cada proceso), lo que rompe el candado de
+# sheets_reports/utils/cache.py y hace que cada worker golpee la API de Google
+# Sheets por su cuenta, agotando la cuota de lectura.
+# Requiere correr `python manage.py createcachetable` una vez por base de datos.
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'django_cache_table',
+    }
+}
+
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
