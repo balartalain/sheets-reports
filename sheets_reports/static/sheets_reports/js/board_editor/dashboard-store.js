@@ -8,6 +8,7 @@ document.addEventListener('alpine:init', () => {
     drawerDraft: {},
     drawerGenerating: false,
     drawerGenerateError: '',
+    drawerUtilsOpen: false,
     utilsOpen: false,
     availableUtils: [],
     systemUtilsOpen: false,
@@ -141,6 +142,7 @@ document.addEventListener('alpine:init', () => {
       this.editingType = null;
       this.drawerDraft = {};
       this.drawerGenerateError = '';
+      this.drawerUtilsOpen = false;
     },
 
     async generateWidgetCode() {

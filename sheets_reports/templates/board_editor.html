@@ -128,6 +128,33 @@
                   </button>
                   <p x-show="$store.dashboard.drawerGenerateError" x-text="$store.dashboard.drawerGenerateError"
                      class="mt-1 text-xs text-red-600"></p>
+
+                  <div class="mt-2">
+                    <button type="button" x-on:click="$store.dashboard.drawerUtilsOpen = !$store.dashboard.drawerUtilsOpen"
+                            class="w-full flex items-center justify-between text-xs font-medium text-moss-700 hover:text-moss-800 py-1 cursor-pointer">
+                      <span class="flex items-center gap-1">
+                        <i class="ti ti-list-details text-sm" aria-hidden="true"></i>
+                        Funciones disponibles
+                      </span>
+                      <i class="ti text-sm" x-bind:class="$store.dashboard.drawerUtilsOpen ? 'ti-chevron-up' : 'ti-chevron-down'" aria-hidden="true"></i>
+                    </button>
+                    <div x-show="$store.dashboard.drawerUtilsOpen" class="space-y-1.5 mt-2 max-h-48 overflow-auto">
+                      <template x-for="u in $store.dashboard.availableUtils" :key="u.origin + ':' + u.name">
+                        <div class="border border-line rounded-lg p-2 bg-white">
+                          <div class="flex items-center gap-2 flex-wrap">
+                            <span class="text-xs font-mono font-semibold text-ink" x-text="u.name + u.signature"></span>
+                            <span class="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0"
+                                  x-bind:class="u.origin === 'custom' ? 'text-moss-700 bg-moss-tint' : 'text-ink/50 bg-line'"
+                                  x-text="u.category"></span>
+                          </div>
+                          <p class="text-[11px] text-ink/50 mt-0.5" x-text="u.description"></p>
+                        </div>
+                      </template>
+                      <p x-show="!$store.dashboard.availableUtils.length" class="text-xs text-ink/40 italic">
+                        No hay funciones disponibles todavía.
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 <div>
