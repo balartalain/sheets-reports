@@ -41,6 +41,12 @@
   color: var(--tb-ink-muted);
   text-transform: none;
 }
+.tabulator-col .tabulator-col-content .tabulator-col-title {
+      white-space: normal !important;
+}
+.tabulator .tabulator-header .tabulator-col {
+    height: auto !important;
+}
 .tabulator .tabulator-row.tabulator-row-bold {
   font-weight: bold;
   background-color: var(--color-header) !important;

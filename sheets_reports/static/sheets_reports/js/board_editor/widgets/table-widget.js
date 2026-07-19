@@ -69,7 +69,7 @@
       this._table = new Tabulator(container, {
         data: payload.rows || [],
         columns: payload.columns || [],
-        layout: 'fitColumns',
+        layout: 'fitDataStretch',
         pagination: this.showPagination,
         paginationSize: this.pageSize,
         height: '100%',
