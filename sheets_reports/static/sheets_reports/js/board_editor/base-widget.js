@@ -34,7 +34,7 @@
 
     static FIELD_PROMPT = {
       key: 'prompt',
-      label: 'Descripción para IA',
+      label: 'Descripción',
       type: 'textarea',
       generatable: true,
     };
