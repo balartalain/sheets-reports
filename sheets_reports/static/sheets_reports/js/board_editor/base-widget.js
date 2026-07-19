@@ -17,6 +17,21 @@
     });
   }
 
+  // Con muchos widgets en un tablero, pedir datos de todos apenas carga la página es lento
+  // (N requests + N renders de golpe). En vez de eso, cada widget se monta con su mockup y
+  // solo pide sus datos reales cuando entra (o está por entrar) al viewport — ver
+  // observeForLazyLoad()/fetchAndRender() más abajo. rootMargin adelanta el fetch ~300px
+  // antes de que el widget sea visible, para que no se vea el mockup al hacer scroll.
+  const _lazyLoadObserver = ('IntersectionObserver' in window)
+    ? new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const widget = entry.target._widgetInstance;
+          if (widget && !widget._loaded) widget.fetchAndRender();
+        }
+      }, { threshold: 0.1 })
+    : null;
+
   class BaseWidget {
     static type = null;
     static palette = {
@@ -185,6 +200,7 @@
       this.order = raw.order ?? 0;
       this._dirty = raw._dirty ?? false;
       this._loading = false;
+      this._loaded = false;
       this.el = null;
       this._chart = null;
     }
@@ -260,12 +276,7 @@
     mountReadOnly() {
       this.el = this.buildReadOnlyElement();
       this._attachFiltersListener();
-      const container = this.getContentContainer();
-      if (container) {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => this.renderContent(container));
-        });
-      }
+      this.setLoading(true);
       return this.el;
     }
 
@@ -332,10 +343,24 @@
         </div>
       `;
     }
+observeForLazyLoad
+    () {
+      if (!_lazyLoadObserver || !this.el) {
+        this.fetchAndRender();
+        return;
+      }
+      this.el._widgetInstance = this;
+      _lazyLoadObserver.observe(this.el);
+    }
 
     async fetchAndRender() {
       if (this.id < 0) return;
+      this._loaded = true;
+      if (this.el && _lazyLoadObserver) _lazyLoadObserver.unobserve(this.el);
       if (!this.functionPath && !this.code) {
+        // Widget sin función ni código (ej. un futuro tipo de contenido estático que no
+        // hace fetch): apaga el loader que mountReadOnly() prendió, si no queda pegado.
+        this.setLoading(false);
         const container = this.getContentContainer();
         if (container) this.renderContent(container);
         return;
@@ -377,12 +402,16 @@
     }
 
     _attachFiltersListener() {
-      this._onFiltersChanged = () => this.fetchAndRender();
+      // Si el widget todavía no cargó datos reales (sigue con el mockup, fuera del
+      // viewport), no hace falta pedirlos ahora: se piden ya filtrados cuando
+      // observeForLazyLoad() dispare su fetch al entrar en pantalla.
+      this._onFiltersChanged = () => { if (this._loaded) this.fetchAndRender(); };
       window.addEventListener('dashboard:filters-changed', this._onFiltersChanged);
     }
 
     destroy() {
       window.removeEventListener('dashboard:filters-changed', this._onFiltersChanged);
+      if (this.el && _lazyLoadObserver) _lazyLoadObserver.unobserve(this.el);
       if (this._chart) {
         this._chart.destroy();
         this._chart = null;

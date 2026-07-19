@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   store.widgets.forEach(w => {
     canvasEl.appendChild(w.mount());
   });
-  store.widgets.forEach(w => w.fetchAndRender());
+  store.widgets.forEach(w => w.observeForLazyLoad());
 
   store.refreshAvailableFunctions();
   store.loadUtils();

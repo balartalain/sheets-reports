@@ -18,5 +18,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   }));
 
   widgets.forEach(w => canvasEl.appendChild(w.mountReadOnly()));
-  widgets.forEach(w => w.fetchAndRender());
+  widgets.forEach(w => w.observeForLazyLoad());
 });
