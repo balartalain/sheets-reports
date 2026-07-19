@@ -6,6 +6,7 @@ from django.core.serializers.json import DjangoJSONEncoder
 from django.http import JsonResponse
 
 from sheets_reports.models import WidgetInstance
+from sheets_reports.utils.registry import get_system_namespace, util
 
 logger = logging.getLogger(__name__)
 
@@ -87,17 +88,25 @@ def _import_function(func_name: str, board_slug: str):
     return module, func_name, None
 
 
+@util(
+    category="Filtros",
+    description="Filtros activos guardados en sesión para el tablero de este widget: {campo: valor}.",
+    example="active_filters = get_active_filters(request, widget)",
+)
 def get_active_filters(request, widget) -> dict:
-    """Filtros activos guardados en sesión para el tablero de este widget: {campo: valor}."""
     return request.session.get("dashboard_filters", {}).get(str(widget.dashboard_id), {})
 
 
+@util(
+    category="Filtros",
+    description=(
+        "Aplica los filtros activos del tablero a un DataFrame, comparando cada filtro contra "
+        "la columna del mismo nombre (si existe). Filtros sin valor, o cuyo nombre no coincide "
+        "con ninguna columna, se ignoran."
+    ),
+    example="df = apply_active_filters(df, request, widget)",
+)
 def apply_active_filters(df, request, widget):
-    """
-    Aplica los filtros activos del tablero al DataFrame, comparando cada
-    filtro contra la columna del mismo nombre (si existe). Filtros sin valor,
-    o cuyo nombre no coincide con ninguna columna, se ignoran.
-    """
     if df.empty:
         return df
     for field, value in get_active_filters(request, widget).items():
@@ -107,42 +116,36 @@ def apply_active_filters(df, request, widget):
     return df
 
 
-class SharedCodeError(Exception):
-    """El código compartido del tablero (Dashboard.shared_code) no compiló."""
+class CustomUtilError(Exception):
+    """Una función utilitaria personalizada del tablero (DashboardUtilFunction) no compiló."""
 
 
 def _build_exec_namespace(dashboard=None):
     """
     Contexto disponible para el código Python guardado en widget.code (generado por IA).
-    Expone las mismas utilidades que ya usan las funciones basadas en archivo, para que
-    el código generado no necesite (ni pueda) hacer imports propios.
+    Las utilidades del sistema se toman todas del registro (sheets_reports.utils.registry),
+    en vez de importarlas y listarlas una por una acá: decorar una función con @util ya
+    alcanza para que quede disponible en el exec(), sin tocar este archivo.
 
-    Si el dashboard tiene `shared_code` (funciones reutilizables entre widgets, ej. columnas
-    calculadas), se ejecuta en este mismo namespace antes de devolverlo, para que sus funciones
-    queden disponibles cuando se ejecute el código propio del widget a continuación.
+    Las funciones utilitarias personalizadas del tablero (DashboardUtilFunction) se ejecutan
+    en este mismo namespace antes de devolverlo, para que queden disponibles cuando se
+    ejecute el código propio del widget a continuación.
     """
     import pandas as pd
-
-    from sheets_reports.utils.cache import get_cached_df
-    from sheets_reports.utils.chart_helpers import distribucion_por_respuesta
-    from sheets_reports.utils.table_helpers import tabla_conteo_por_respuesta
 
     namespace = {
         "__builtins__": SAFE_BUILTINS,
         "pd": pd,
-        "get_cached_df": get_cached_df,
-        "apply_active_filters": apply_active_filters,
-        "get_active_filters": get_active_filters,
-        "distribucion_por_respuesta": distribucion_por_respuesta,
-        "tabla_conteo_por_respuesta": tabla_conteo_por_respuesta,
         "JsonResponse": _widget_json_response,
+        **get_system_namespace(),
     }
 
-    if dashboard is not None and dashboard.shared_code:
-        try:
-            exec(dashboard.shared_code, namespace)
-        except Exception as e:
-            raise SharedCodeError(str(e)) from e
+    if dashboard is not None:
+        for custom_util in dashboard.custom_utils.filter(is_active=True):
+            try:
+                exec(custom_util.source_code, namespace)
+            except Exception as e:
+                raise CustomUtilError(f"{custom_util.name}: {e}") from e
 
     return namespace
 
@@ -155,9 +158,9 @@ def execute_widget_code(code: str, request, widget) -> JsonResponse:
     """
     try:
         namespace = _build_exec_namespace(widget.dashboard)
-    except SharedCodeError as e:
-        logger.exception("Error al compilar el código compartido del tablero %s", widget.dashboard_id)
-        return JsonResponse({"error": f"Error en el código compartido del tablero: {e}"}, status=500)
+    except CustomUtilError as e:
+        logger.exception("Error al compilar las funciones utilitarias del tablero %s", widget.dashboard_id)
+        return JsonResponse({"error": f"Error en las funciones utilitarias del tablero: {e}"}, status=500)
 
     try:
         exec(code, namespace)

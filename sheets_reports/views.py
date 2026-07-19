@@ -2,14 +2,16 @@ import importlib
 import inspect
 import json
 
+from django.db import IntegrityError
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from sheets_reports.models import Dashboard, WidgetInstance
+from sheets_reports.models import Dashboard, DashboardUtilFunction, WidgetInstance
 from sheets_reports.utils.gemini_client import generate_widget_code as generate_code_from_prompt
-from sheets_reports.utils.gemini_client import generate_shared_code as generate_shared_code_from_prompt
+from sheets_reports.utils.gemini_client import generate_custom_util as generate_custom_util_from_prompt
+from sheets_reports.utils.registry import get_available_utils
 from sheets_reports.utils.widget_dispatcher import dispatch_widget
 
 
@@ -178,37 +180,83 @@ def generate_widget_code(request, dashboard_id):
     return JsonResponse({"code": code})
 
 
+def _serialize_util(u):
+    return {
+        "id": u.id,
+        "name": u.name,
+        "signature": u.signature,
+        "description": u.description,
+        "category": u.category,
+        "source_code": u.source_code,
+        "created_from_prompt": u.created_from_prompt,
+        "is_active": u.is_active,
+        "origin": "custom",
+        "editable": True,
+    }
+
+
 @csrf_exempt
-@require_http_methods(["GET", "PUT"])
-def dashboard_shared_code(request, dashboard_id):
-    """GET: retorna el código compartido del tablero. PUT: lo actualiza."""
+@require_http_methods(["GET", "POST"])
+def dashboard_util_functions(request, dashboard_id):
+    """GET: lista las utilidades disponibles para el tablero (del sistema + personalizadas).
+    POST: guarda una función utilitaria personalizada nueva (ya generada y revisada)."""
     try:
         dashboard = Dashboard.objects.get(id=dashboard_id)
     except Dashboard.DoesNotExist:
         return JsonResponse({"error": "Dashboard no encontrado"}, status=404)
 
     if request.method == "GET":
-        return JsonResponse({
-            "shared_code": dashboard.shared_code,
-            "shared_code_prompt": dashboard.shared_code_prompt,
-        })
+        return JsonResponse(get_available_utils(dashboard), safe=False)
 
     data = _get_request_data(request)
-    if "shared_code" in data:
-        dashboard.shared_code = data["shared_code"]
-    if "shared_code_prompt" in data:
-        dashboard.shared_code_prompt = data["shared_code_prompt"]
-    dashboard.save()
-    return JsonResponse({
-        "shared_code": dashboard.shared_code,
-        "shared_code_prompt": dashboard.shared_code_prompt,
-    })
+    try:
+        util_fn = DashboardUtilFunction.objects.create(
+            dashboard=dashboard,
+            name=data.get("name", ""),
+            signature=data.get("signature", ""),
+            description=data.get("description", ""),
+            category=data.get("category") or "Personalizada",
+            source_code=data.get("source_code", ""),
+            created_from_prompt=data.get("prompt", ""),
+        )
+    except IntegrityError:
+        return JsonResponse({"error": f"Ya existe una función llamada '{data.get('name', '')}' en este tablero."}, status=400)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
+    return JsonResponse(_serialize_util(util_fn), status=201)
+
+
+@csrf_exempt
+@require_http_methods(["PUT", "DELETE"])
+def util_function_detail(request, util_id):
+    """PUT: actualiza una función utilitaria personalizada. DELETE: la elimina."""
+    try:
+        util_fn = DashboardUtilFunction.objects.get(id=util_id)
+    except DashboardUtilFunction.DoesNotExist:
+        return JsonResponse({"error": "Función no encontrada"}, status=404)
+
+    if request.method == "DELETE":
+        util_fn.delete()
+        return JsonResponse({"deleted": True})
+
+    data = _get_request_data(request)
+    for field in ("name", "signature", "description", "category", "source_code", "is_active"):
+        if field in data:
+            setattr(util_fn, field, data[field])
+    try:
+        util_fn.save()
+    except IntegrityError:
+        return JsonResponse({"error": f"Ya existe una función llamada '{util_fn.name}' en este tablero."}, status=400)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
+    return JsonResponse(_serialize_util(util_fn))
 
 
 @csrf_exempt
 @require_http_methods(["POST"])
-def generate_shared_code(request, dashboard_id):
-    """POST: genera código Python compartido del tablero a partir de un prompt, vía Gemini."""
+def generate_custom_util(request, dashboard_id):
+    """POST: genera (o modifica) una función utilitaria personalizada a partir de un prompt,
+    vía Gemini. No la guarda: la retorna para que el usuario la revise antes de guardarla."""
     try:
         dashboard = Dashboard.objects.get(id=dashboard_id)
     except Dashboard.DoesNotExist:
@@ -218,14 +266,14 @@ def generate_shared_code(request, dashboard_id):
     prompt = (data.get("prompt") or "").strip()
     if not prompt:
         return JsonResponse({"error": "prompt requerido"}, status=400)
-    existing_code = data.get("existing_code", "")
+    existing_util = data.get("existing_util")
 
     try:
-        code = generate_shared_code_from_prompt(prompt, dashboard, existing_code=existing_code)
+        util_data = generate_custom_util_from_prompt(prompt, dashboard, existing_util=existing_util)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-    return JsonResponse({"code": code})
+    return JsonResponse(util_data)
 
 
 def widget_functions(request, board_slug):

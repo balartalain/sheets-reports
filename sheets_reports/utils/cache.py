@@ -4,6 +4,7 @@ import pandas as pd
 from django.core.cache import cache
 
 from .google_sheets import fetch_sheet_as_dataframe, list_worksheet_titles
+from .registry import util
 
 CACHE_TIMEOUT = 300  # 5 minutos
 LOCK_TIMEOUT = 30  # segundos máximo que puede tardar un fetch a Google Sheets
@@ -45,15 +46,16 @@ def _fetch_with_lock(cache_key: str, timeout: int, fetch_fn):
     return value
 
 
+@util(
+    category="Datos",
+    description=(
+        "Retorna el DataFrame de una pestaña del Google Sheet del tablero (cacheado). "
+        "sheet_name=None usa la primera hoja; se puede llamar más de una vez para cruzar "
+        "datos de varias pestañas del mismo spreadsheet."
+    ),
+    example="df = get_cached_df(widget.dashboard, sheet_name='Respuestas de formulario 1')",
+)
 def get_cached_df(dashboard, sheet_name: str | None = None) -> pd.DataFrame:
-    """
-    Retorna el DataFrame de una pestaña del Google Sheet asociado al dashboard.
-    Lo busca en cache primero; si no existe o expiró, lo obtiene de Google Sheets y lo cachea.
-
-    Cada función de widget llama esto directamente indicando la hoja que necesita
-    (sheet_name=None usa la primera hoja), y puede llamarla más de una vez para
-    cruzar datos de varias pestañas del mismo spreadsheet.
-    """
     cache_key = f"sheet_df_{dashboard.id}_{(sheet_name or '__default__').replace(' ', '_')}"
     return _fetch_with_lock(
         cache_key, CACHE_TIMEOUT, lambda: fetch_sheet_as_dataframe(dashboard.source_url, sheet_name)

@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   store.widgets.forEach(w => w.fetchAndRender());
 
   store.refreshAvailableFunctions();
-  store.loadSharedCode();
+  store.loadUtils();
 
   requestAnimationFrame(() => {
     window.dispatchEvent(new Event('resize'));

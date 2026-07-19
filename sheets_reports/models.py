@@ -40,16 +40,6 @@ class Dashboard(models.Model):
         related_name="dashboards",
         help_text="Usuario propietario del tablero.",
     )
-    shared_code = models.TextField(
-        blank=True,
-        default="",
-        help_text="Código Python compartido por todos los widgets del tablero (funciones reutilizables, ej. columnas calculadas). Se inyecta en el exec() de cada widget antes de su propio código.",
-    )
-    shared_code_prompt = models.TextField(
-        blank=True,
-        default="",
-        help_text="Último prompt usado para generar shared_code vía IA.",
-    )
     created_at = models.DateTimeField(
         auto_now_add=True,
         help_text="Fecha y hora de creación del tablero.",
@@ -178,3 +168,27 @@ class WidgetInstance(models.Model):
         """Nombre exacto de columna a filtrar (solo widgets chart_type='filter'), configurado
         por el usuario en el drawer y guardado en properties.filterField."""
         return (self.properties or {}).get("filterField", "")
+
+
+class DashboardUtilFunction(models.Model):
+    """Función utilitaria personalizada de un tablero (ej. una columna calculada), generada
+    vía IA o editada a mano. Se inyecta en el exec() de cada widget de ese tablero, junto con
+    las utilidades del sistema (ver sheets_reports.utils.registry)."""
+    dashboard = models.ForeignKey(Dashboard, related_name='custom_utils', on_delete=models.CASCADE)
+    name = models.CharField(max_length=100)
+    signature = models.CharField(max_length=255)
+    description = models.TextField()
+    category = models.CharField(max_length=50, default='Personalizada')
+    source_code = models.TextField()
+    created_from_prompt = models.TextField(blank=True)  # qué pidió el usuario para generarla
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "Función Utilitaria del Tablero"
+        verbose_name_plural = "Funciones Utilitarias del Tablero"
+        unique_together = [('dashboard', 'name')]
+        ordering = ["category", "name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.dashboard.title})"

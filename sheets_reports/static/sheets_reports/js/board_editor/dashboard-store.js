@@ -8,14 +8,24 @@ document.addEventListener('alpine:init', () => {
     drawerDraft: {},
     drawerGenerating: false,
     drawerGenerateError: '',
-    sharedCodeOpen: false,
-    sharedCodeDraft: { prompt: '', code: '' },
-    sharedCodeGenerating: false,
-    sharedCodeGenerateError: '',
+    utilsOpen: false,
+    availableUtils: [],
+    systemUtilsOpen: false,
+    utilDraft: null,
+    utilGenerating: false,
+    utilGenerateError: '',
     _nextId: -1,
 
     get flatFunctions() {
       return this.availableFunctions.map(name => ({ path: name, label: name }));
+    },
+
+    get customUtils() {
+      return this.availableUtils.filter(u => u.origin === 'custom');
+    },
+
+    get systemUtils() {
+      return this.availableUtils.filter(u => u.origin === 'system');
     },
 
     async refreshAvailableFunctions() {
@@ -25,11 +35,10 @@ document.addEventListener('alpine:init', () => {
       } catch (e) {}
     },
 
-    async loadSharedCode() {
+    async loadUtils() {
       try {
-        const r = await fetch(`/api/dashboard/${this.dashboardId}/shared-code/`);
-        const data = await r.json();
-        this.sharedCodeDraft = { prompt: data.shared_code_prompt || '', code: data.shared_code || '' };
+        const r = await fetch(`/api/dashboard/${this.dashboardId}/utils/`);
+        this.availableUtils = await r.json();
       } catch (e) {}
     },
 
@@ -176,51 +185,99 @@ document.addEventListener('alpine:init', () => {
       return w.fetchAndRender();
     },
 
-    openSharedCodePanel() {
-      this.sharedCodeOpen = true;
+    openUtilsPanel() {
+      this.utilsOpen = true;
+      this.loadUtils();
     },
 
-    closeSharedCodePanel() {
-      this.sharedCodeOpen = false;
-      this.sharedCodeGenerateError = '';
+    closeUtilsPanel() {
+      this.utilsOpen = false;
+      this.utilDraft = null;
+      this.utilGenerateError = '';
     },
 
-    async generateSharedCode() {
-      if (!this.sharedCodeDraft.prompt) return;
-      this.sharedCodeGenerating = true;
-      this.sharedCodeGenerateError = '';
+    newUtilDraft() {
+      this.utilDraft = { id: null, prompt: '', name: '', signature: '', category: '', description: '', source_code: '' };
+      this.utilGenerateError = '';
+    },
+
+    editUtilDraft(u) {
+      this.utilDraft = {
+        id: u.id, prompt: '', name: u.name, signature: u.signature,
+        category: u.category, description: u.description, source_code: u.source_code,
+      };
+      this.utilGenerateError = '';
+    },
+
+    cancelUtilDraft() {
+      this.utilDraft = null;
+      this.utilGenerateError = '';
+    },
+
+    async generateUtil() {
+      if (!this.utilDraft || !this.utilDraft.prompt) return;
+      this.utilGenerating = true;
+      this.utilGenerateError = '';
       try {
-        const r = await fetch(`/api/dashboard/${this.dashboardId}/generate-shared-code/`, {
+        const r = await fetch(`/api/dashboard/${this.dashboardId}/utils/generate/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            prompt: this.sharedCodeDraft.prompt,
-            existing_code: this.sharedCodeDraft.code,
+            prompt: this.utilDraft.prompt,
+            existing_util: this.utilDraft.id
+              ? { name: this.utilDraft.name, source_code: this.utilDraft.source_code }
+              : null,
           }),
         });
         const data = await r.json();
-        if (!r.ok) throw new Error(data.error || 'Error generando código');
-        this.sharedCodeDraft.code = data.code;
-        this.sharedCodeDraft.prompt = '';
+        if (!r.ok) throw new Error(data.error || 'Error generando la función');
+        Object.assign(this.utilDraft, {
+          name: data.name, signature: data.signature,
+          category: data.category, description: data.description, source_code: data.source_code,
+        });
+        this.utilDraft.prompt = '';
       } catch (e) {
-        this.sharedCodeGenerateError = e.message;
+        this.utilGenerateError = e.message;
       } finally {
-        this.sharedCodeGenerating = false;
+        this.utilGenerating = false;
       }
     },
 
-    async saveSharedCode() {
+    async saveUtilDraft() {
+      const draft = this.utilDraft;
+      if (!draft || !draft.source_code) return;
+      const body = {
+        name: draft.name, signature: draft.signature,
+        category: draft.category, description: draft.description, source_code: draft.source_code,
+      };
       try {
-        await fetch(`/api/dashboard/${this.dashboardId}/shared-code/`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            shared_code: this.sharedCodeDraft.code,
-            shared_code_prompt: this.sharedCodeDraft.prompt,
-          }),
-        });
+        const r = draft.id
+          ? await fetch(`/api/util-function/${draft.id}/`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            })
+          : await fetch(`/api/dashboard/${this.dashboardId}/utils/`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'Error guardando la función');
+      } catch (e) {
+        this.utilGenerateError = e.message;
+        return;
+      }
+      this.utilDraft = null;
+      await this.loadUtils();
+    },
+
+    async deleteUtil(u) {
+      if (!confirm(`¿Eliminar la función "${u.name}"? Los widgets que la usen fallarán.`)) return;
+      try {
+        await fetch(`/api/util-function/${u.id}/`, { method: 'DELETE' });
       } catch (e) {}
-      this.closeSharedCodePanel();
+      await this.loadUtils();
     },
   });
 });

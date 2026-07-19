@@ -8,6 +8,8 @@ llama es responsable de envolverlo en JsonResponse.
 """
 from django.utils.text import slugify
 
+from .registry import util
+
 
 def _campo_desde_valor(valor: str, usados: set) -> str:
     """
@@ -27,37 +29,24 @@ def _campo_desde_valor(valor: str, usados: set) -> str:
     return field
 
 
+@util(
+    category="Tablas",
+    description=(
+        "Agrupa `df` por `columna_categoria` y desglosa el conteo de `columna_valor` en una "
+        "columna por cada valor único encontrado (con su % al lado), más una columna 'Total'. "
+        "Formato compatible con Tabulator: { columns: [{title, field}], rows: [{...}] }. Los "
+        "nombres de campo se derivan del texto de cada valor único vía slugify (ej. "
+        "'Completamente satisfecho' -> 'resp_completamente_satisfecho'). Si `columna_categoria` "
+        "o `columna_valor` no existen en `df`, retorna columns/rows vacías."
+    ),
+    example="data = tabla_conteo_por_respuesta(df, 'Categoría', 'Respuesta')",
+)
 def tabla_conteo_por_respuesta(
     df,
     columna_categoria: str = "Categoría",
     columna_valor: str = "Respuesta",
     excluir=('No se utiliza', 'No aplica', 'N/A'),
 ) -> dict:
-    """
-    Agrupa `df` por `columna_categoria` y desglosa el conteo de
-    `columna_valor` en una columna por cada valor único encontrado (con su %
-    al lado), más una columna 'Total'. Formato compatible con Tabulator:
-    { columns: [{title, field}], rows: [{...}] }.
-
-    Los valores únicos que generan las columnas se determinan sobre TODO el
-    DataFrame (no por categoría individual), para que todas las filas
-    compartan el mismo set de columnas. Se excluyen automáticamente valores
-    nulos/vacíos, más cualquier valor listado en `excluir`
-    (ej. excluir=["N/A", "No aplica"]).
-
-    El % y el 'Total' de cada fila se calculan sobre el total de valores NO
-    excluidos de esa categoría (no sobre el total real de filas de la
-    categoría). Como cada % se redondea de forma independiente, la suma de
-    los % de una fila puede no dar exactamente 100%.
-
-    Los nombres de campo (`field`) se derivan del texto de cada valor único
-    vía slugify (ej. 'Completamente satisfecho' -> 'resp_completamente_satisfecho',
-    con su % en 'pct_completamente_satisfecho'). El orden de las columnas de
-    valor es alfabético, para ser determinista.
-
-    Si `columna_categoria` o `columna_valor` no existen en `df`, retorna
-    { "columns": [], "rows": [] }.
-    """
     if columna_categoria not in df.columns or columna_valor not in df.columns:
         return {"columns": [], "rows": []}
 
