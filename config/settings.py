@@ -124,7 +124,21 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
-STATIC_URL = 'static/'
+PRODUCTION = not DEBUG
+
+if PRODUCTION:
+    FORCE_SCRIPT_NAME = '/reports'
+    # Al dejarlo relativo con la barra al final, Django en producción
+    # le concatenará automáticamente el FORCE_SCRIPT_NAME,
+    # generando en los HTML: /reports/static/
+    STATIC_URL = 'static/'
+else:
+    FORCE_SCRIPT_NAME = None
+    # En tu máquina local funcionará de forma normal en la raíz: /static/
+    STATIC_URL = '/static/'
+
+# Carpeta donde `collectstatic` reúne todos los estáticos para producción.
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -140,4 +154,4 @@ GEMINI_API_KEY = config("GEMINI_API_KEY", default="")
 # Configuración para GUNICON - APACHE
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-FORCE_SCRIPT_NAME = config('REPORT_PATH', default=None)
+#FORCE_SCRIPT_NAME = config('REPORT_PATH', default=None)
