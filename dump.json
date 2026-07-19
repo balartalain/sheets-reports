@@ -1,0 +1,1218 @@
+[
+{
+  "model": "auth.user",
+  "fields": {
+    "password": "pbkdf2_sha256$1000000$9Hn7dOiWU1dIWXITSyNG0d$oT1kfx7HWnPoY1pkzjJuUAoonDXi+e7I1D6U7+fetyU=",
+    "last_login": "2026-07-13T01:21:09.226Z",
+    "is_superuser": true,
+    "username": "admin",
+    "first_name": "",
+    "last_name": "",
+    "email": "admin@gmail.com",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-07-13T01:20:48.796Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "sheets_reports.dashboard",
+  "pk": 1,
+  "fields": {
+    "source_url": "https://docs.google.com/spreadsheets/d/1u5FV9fZ1A7CxPNX0tvxwvTOCZI-63g7dwUpMvRQdJ9M/edit?usp=sharing",
+    "title": "Reporte de Ventas",
+    "slug": "reporte-de-ventas",
+    "functions_slug": "reporte-de-ventas",
+    "user": [
+      "admin"
+    ],
+    "created_at": "2026-07-13T01:22:18.832Z"
+  }
+},
+{
+  "model": "sheets_reports.dashboard",
+  "pk": 17,
+  "fields": {
+    "source_url": "https://docs.google.com/spreadsheets/d/11OR8f3GI1ODZovPx6d1qwPyPYVwa55lJAzfI5D7TpMc/edit?usp=sharing",
+    "title": "Encuesta satisfacción de  participantes 2026",
+    "slug": "encuesta-satisfaccion-de-participantes-2026",
+    "functions_slug": "encuesta-satisfaccion-de-participantes-2026",
+    "user": [
+      "admin"
+    ],
+    "created_at": "2026-07-16T02:07:29.986Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 18,
+  "fields": {
+    "dashboard": 1,
+    "title": "Total 1",
+    "chart_type": "kpi",
+    "function_path": "kpi_resumen",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Ventas')\n    df = apply_active_filters(df, request, widget)\n\n    main_value = 0\n    secondary_values = []\n    main_label = \"Total Ventas\"\n\n    if 'Ventas' in df.columns:\n        # Ensure 'Ventas' column is numeric, coerce errors to NaN and drop them\n        df['Ventas'] = pd.to_numeric(df['Ventas'], errors='coerce')\n        df = df.dropna(subset=['Ventas'])\n\n        main_value = df['Ventas'].sum()\n\n        if 'Vendedor' in df.columns:\n            # Group by 'Vendedor' and sum 'Ventas'\n            sales_by_vendor = df.groupby('Vendedor')['Ventas'].sum().reset_index()\n            \n            # Sort by sales in descending order\n            sales_by_vendor = sales_by_vendor.sort_values(by='Ventas', ascending=False)\n\n            for _, row in sales_by_vendor.iterrows():\n                secondary_values.append({\n                    \"label\": row['Vendedor'],\n                    \"value\": row['Ventas']\n                })\n    \n    return JsonResponse({\n        \"main_value\": main_value,\n        \"main_label\": main_label,\n        \"secondary_values\": secondary_values\n    })",
+    "prompt": "",
+    "properties": {
+      "width": "col-span-4",
+      "height": 171,
+      "startCol": "md:col-start-1"
+    },
+    "order": 1,
+    "created_at": "2026-07-14T01:59:02.374Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 20,
+  "fields": {
+    "dashboard": 1,
+    "title": "Año",
+    "chart_type": "filter",
+    "function_path": "filtro_annos",
+    "code": "",
+    "prompt": "",
+    "properties": {
+      "width": "col-span-2",
+      "startCol": "col-start-11"
+    },
+    "order": 0,
+    "created_at": "2026-07-14T14:16:00.998Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 25,
+  "fields": {
+    "dashboard": 1,
+    "title": "Gráfico de Dona",
+    "chart_type": "donut",
+    "function_path": "",
+    "code": "",
+    "prompt": "",
+    "properties": {
+      "width": "col-span-4",
+      "height": 301,
+      "startCol": ""
+    },
+    "order": 6,
+    "created_at": "2026-07-14T18:45:52.248Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 26,
+  "fields": {
+    "dashboard": 1,
+    "title": "Tarjeta KPI",
+    "chart_type": "kpi",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard)\n    df = apply_active_filters(df, request, widget)\n\n    # Convert 'Ventas' to numeric, coercing errors to NaN\n    if 'Ventas' in df.columns:\n        df['Ventas'] = pd.to_numeric(df['Ventas'], errors='coerce')\n    else:\n        # Handle case where 'Ventas' column is missing\n        return JsonResponse({\n            \"main_value\": 0,\n            \"main_label\": \"Ventas (columna 'Ventas' no encontrada)\",\n            \"secondary_values\": []\n        })\n\n    # Drop rows where 'Ventas' is NaN (after conversion)\n    df_cleaned = df.dropna(subset=['Ventas'])\n\n    if not df_cleaned.empty and 'Tienda' in df_cleaned.columns:\n        # Group by 'Tienda' and sum 'Ventas'\n        sales_by_store = df_cleaned.groupby('Tienda')['Ventas'].sum()\n\n        if not sales_by_store.empty:\n            # Find the store with the highest sales\n            top_store = sales_by_store.idxmax()\n            max_sales = sales_by_store.max()\n\n            return JsonResponse({\n                \"main_value\": max_sales,\n                \"main_label\": f\"Ventas de {top_store}\",\n                \"secondary_values\": []\n            })\n    \n    # Default return if no data or columns are missing\n    return JsonResponse({\n        \"main_value\": 0,\n        \"main_label\": \"Sin datos de ventas\",\n        \"secondary_values\": []\n    })",
+    "prompt": "",
+    "properties": {
+      "width": "col-span-4",
+      "height": 172,
+      "startCol": ""
+    },
+    "order": 2,
+    "created_at": "2026-07-14T18:46:34.128Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 27,
+  "fields": {
+    "dashboard": 1,
+    "title": "Tarjeta KPI",
+    "chart_type": "kpi",
+    "function_path": "",
+    "code": "",
+    "prompt": "",
+    "properties": {
+      "width": "col-span-4",
+      "height": 177,
+      "startCol": ""
+    },
+    "order": 3,
+    "created_at": "2026-07-14T18:46:34.135Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 29,
+  "fields": {
+    "dashboard": 1,
+    "title": "Gráfico de Líneas",
+    "chart_type": "line",
+    "function_path": "",
+    "code": "",
+    "prompt": "",
+    "properties": {
+      "width": "col-span-4",
+      "height": 300,
+      "startCol": ""
+    },
+    "order": 5,
+    "created_at": "2026-07-14T19:51:32.081Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 32,
+  "fields": {
+    "dashboard": 1,
+    "title": "Ventas",
+    "chart_type": "table",
+    "function_path": "tabla_ventas_detalle",
+    "code": "",
+    "prompt": "",
+    "properties": {
+      "width": "col-span-12",
+      "height": 492,
+      "startCol": "",
+      "pageSize": 10
+    },
+    "order": 7,
+    "created_at": "2026-07-15T15:49:04.474Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 33,
+  "fields": {
+    "dashboard": 1,
+    "title": "Gráfico de Barras",
+    "chart_type": "bar",
+    "function_path": "",
+    "code": "",
+    "prompt": "",
+    "properties": {
+      "width": "col-span-6",
+      "height": 300,
+      "startCol": "",
+      "horizontal": false
+    },
+    "order": 4,
+    "created_at": "2026-07-16T01:33:04.093Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 40,
+  "fields": {
+    "dashboard": 17,
+    "title": "Distribución por Recinto",
+    "chart_type": "donut",
+    "function_path": "— Sin asignar —",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas de formulario 1')\n    \n    # Add 'Nivel' column as requested by the user\n    # Using .copy() to ensure add_nivel_column works on a copy and avoids SettingWithCopyWarning\n    df = add_nivel_column(df.copy()) \n    \n    df = apply_active_filters(df, request, widget)\n\n    column_name = 'Recinto:'\n    if column_name not in df.columns:\n        return JsonResponse({\"series\": [], \"categories\": []})\n\n    # Define values to exclude, similar to the shared `distribucion_por_respuesta` function\n    excluidos = {\"\", \"nan\", \"none\", \"nat\", \"no aplica\", \"no se utiliza\", \"n/a\"}\n\n    # Calculate value counts for the target column\n    # Convert all values to string and strip whitespace for consistent comparison\n    counts = df[column_name].astype(str).str.strip().value_counts()\n    \n    # Filter out excluded values (case-insensitive comparison)\n    filtered_counts = counts[~counts.index.str.lower().isin(excluidos)]\n    \n    # Prepare data for the JsonResponse\n    # For a donut chart, 'categories' are the labels for the slices (e.g., Recinto names)\n    # and 'data' is a list of numerical values (counts) for each slice.\n    \n    # Apply _truncar to categories for display, as it's a shared utility function\n    categories = [_truncar(cat) for cat in filtered_counts.index.tolist()]\n    data = filtered_counts.values.tolist()\n\n    # The required structure for a donut chart (as per prompt and ApexCharts common usage):\n    # {\"series\": [{\"name\": str, \"data\": [numeros]}], \"categories\": [etiquetas]}\n    # The 'name' in the series object can be the column name or a generic label.\n    return JsonResponse({\n        \"series\": [{\"name\": column_name, \"data\": data}],\n        \"categories\": categories\n    })",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-6",
+      "height": 300,
+      "startCol": ""
+    },
+    "order": 6,
+    "created_at": "2026-07-16T02:28:28.362Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 42,
+  "fields": {
+    "dashboard": 17,
+    "title": "Período",
+    "chart_type": "bar",
+    "function_path": "— Sin asignar —",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas de formulario 1')\n    df = add_nivel_column(df) # Se agregó la llamada a add_nivel_column\n    df = apply_active_filters(df, request, widget)\n\n    column_name = 'Período que está cursando'\n\n    if column_name not in df.columns:\n        return JsonResponse({\"series\": [], \"categories\": []})\n\n    # Excluir valores que suelen indicar \"no respuesta\" o \"no aplicable\"\n    excluidos = {\"no se utiliza\", \"no aplica\", \"n/a\", \"\", \"nan\", \"none\", \"nat\"}\n\n    # Convertir la columna a string para manejar valores numéricos y de texto,\n    # limpiar espacios y pasar a minúsculas para el filtrado de excluidos.\n    column_series = df[column_name].astype(str).str.strip()\n\n    # Filtrar valores excluidos\n    filtered_column_series = column_series[~column_series.str.lower().isin(excluidos)]\n\n    # Realizar el conteo de ocurrencias para cada valor único\n    counts = filtered_column_series.value_counts()\n\n    # Calcular el total de respuestas válidas para los porcentajes\n    total_responses = counts.sum()\n\n    # Si no hay respuestas válidas, retornar un JSON vacío\n    if total_responses == 0:\n        return JsonResponse({\"series\": [], \"categories\": []})\n\n    # Calcular los porcentajes\n    percentages = (counts / total_responses * 100).round(2)\n\n    # Ordenar las categorías alfabéticamente/lexicográficamente para una visualización consistente\n    percentages = percentages.sort_index()\n\n    # Preparar los datos en el formato requerido para un gráfico de barras\n    categories = [_truncar(cat) for cat in percentages.index.tolist()]\n    data = percentages.values.tolist()\n\n    return JsonResponse({\n        \"series\": [{\"name\": \"Porciento\", \"data\": data}],\n        \"categories\": categories\n    })",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-6",
+      "height": 467,
+      "startCol": "",
+      "horizontal": true,
+      "yAxisWidth": null,
+      "stacked": false,
+      "dataLabelFormatter": "{value} %"
+    },
+    "order": 7,
+    "created_at": "2026-07-16T02:43:00.740Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 44,
+  "fields": {
+    "dashboard": 17,
+    "title": "Resumen por Período",
+    "chart_type": "table",
+    "function_path": "— Sin asignar —",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas de formulario 1')\n    df = add_nivel_column(df) # Llamada a la función solicitada y asignación\n    df = apply_active_filters(df, request, widget)\n\n    columna_periodo = 'Período que está cursando'\n\n    if columna_periodo not in df.columns:\n        return JsonResponse({\"columns\": [], \"rows\": []})\n\n    # Convertir a string para manejar posibles tipos mixtos y asegurar el tratamiento de NaN\n    df_filtered = df[columna_periodo].astype(str).dropna().reset_index(drop=True)\n\n    # Contar ocurrencias de cada período\n    conteo_por_periodo = df_filtered.value_counts().reset_index()\n    conteo_por_periodo.columns = [columna_periodo, 'Cantidad']\n\n    total_respuestas = conteo_por_periodo['Cantidad'].sum()\n\n    # Calcular porcentajes\n    conteo_por_periodo['Porciento'] = conteo_por_periodo['Cantidad'].apply(\n        lambda x: f\"{round(x / total_respuestas * 100, 2)}%\" if total_respuestas else \"0%\"\n    )\n\n    # Ordenar por el nombre del período para consistencia\n    conteo_por_periodo = conteo_por_periodo.sort_values(by=columna_periodo)\n\n    # Preparar el formato de columnas para JsonResponse\n    columns = [\n        {\"title\": columna_periodo, \"field\": \"periodo\"},\n        {\"title\": \"Cantidad\", \"field\": \"cantidad\", \"hozAlign\": \"right\"},\n        {\"title\": \"Porciento\", \"field\": \"porciento\", \"hozAlign\": \"right\"}\n    ]\n\n    # Preparar el formato de filas para JsonResponse\n    rows = []\n    for _, row in conteo_por_periodo.iterrows():\n        rows.append({\n            \"periodo\": row[columna_periodo],\n            \"cantidad\": row['Cantidad'],\n            \"porciento\": row['Porciento']\n        })\n\n    return JsonResponse({\n        \"columns\": columns,\n        \"rows\": rows\n    })",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-6",
+      "height": 465,
+      "startCol": "",
+      "pageSize": 10,
+      "showPagination": false,
+      "boldLastRow": false
+    },
+    "order": 8,
+    "created_at": "2026-07-16T02:46:07.965Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 45,
+  "fields": {
+    "dashboard": 17,
+    "title": "Distribución por Escuelas",
+    "chart_type": "table",
+    "function_path": "— Sin asignar —",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas de formulario 1')\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    columna_categoria = 'Escuela a la que pertenece'\n\n    if columna_categoria not in df.columns:\n        return JsonResponse({\"columns\": [], \"rows\": []})\n\n    # Calcular la frecuencia de cada escuela\n    counts = df[columna_categoria].value_counts().reset_index()\n    counts.columns = [columna_categoria, 'Cantidad']\n\n    # Calcular el porcentaje\n    total_registros_sum = counts['Cantidad'].sum()\n    if total_registros_sum > 0:\n        counts['Porciento'] = (counts['Cantidad'] / total_registros_sum * 100).round(2).astype(str) + '%'\n    else:\n        counts['Porciento'] = '0.00%' # Si no hay registros, el porcentaje es 0\n\n    # Aplicar _truncar a los nombres de las escuelas si son demasiado largos\n    counts[columna_categoria] = counts[columna_categoria].apply(_truncar)\n\n    # Preparar el formato para JsonResponse\n    columns = [\n        {\"title\": columna_categoria, \"field\": columna_categoria},\n        {\"title\": \"Cantidad\", \"field\": \"Cantidad\", \"hozAlign\": \"right\"},\n        {\"title\": \"Porciento\", \"field\": \"Porciento\", \"hozAlign\": \"right\"}\n    ]\n\n    rows = counts.to_dict('records')\n\n    # Añadir la fila de Total\n    total_row = {\n        columna_categoria: 'Total',\n        'Cantidad': total_registros_sum,\n        'Porciento': '100.00%' if total_registros_sum > 0 else '0.00%'\n    }\n    rows.append(total_row)\n\n    return JsonResponse({\"columns\": columns, \"rows\": rows})",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-6",
+      "height": 464,
+      "startCol": "",
+      "pageSize": 10,
+      "showPagination": false,
+      "boldLastRow": true
+    },
+    "order": 9,
+    "created_at": "2026-07-16T02:49:31.480Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 48,
+  "fields": {
+    "dashboard": 17,
+    "title": "Distribución por Escuelas",
+    "chart_type": "donut",
+    "function_path": "— Sin asignar —",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas de formulario 1')\n    df = apply_active_filters(df, request, widget)\n\n    columna_analizar = 'Escuela a la que pertenece'\n\n    if columna_analizar not in df.columns:\n        return JsonResponse({\"series\": [], \"categories\": []})\n\n    # Valores a excluir, consistentes con las funciones compartidas\n    excluir_valores = {\"no se utiliza\", \"no aplica\", \"n/a\", \"\", \"nan\", \"none\", \"nat\"}\n\n    # Preprocesar la columna para el análisis\n    # Convertir a string, limpiar espacios, y luego filtrar valores nulos o excluidos\n    temp_series = df[columna_analizar].astype(str).str.strip()\n    \n    # Filtrar valores excluidos (insensible a mayúsculas/minúsculas)\n    temp_series_filtered = temp_series[~temp_series.str.lower().isin(excluir_valores)]\n\n    # Contar ocurrencias de cada categoría\n    counts = temp_series_filtered.value_counts()\n\n    if counts.empty:\n        return JsonResponse({\"series\": [], \"categories\": []})\n\n    # Preparar los datos en el formato requerido para chart_type=\"donut\"\n    # Las categorías son los índices de los counts (nombres de las escuelas)\n    # Los datos son las cantidades contadas, como se pidió explícitamente.\n    \n    # Asegurarse de que los labels (categories) se truncan para la visualización\n    categories = [_truncar(label) for label in counts.index.tolist()]\n    data_values = counts.tolist()\n\n    response_data = {\n        \"series\": [{\"name\": \"Cantidad\", \"data\": data_values}], # Nombre de la serie indica que son cantidades\n        \"categories\": categories\n    }\n\n    return JsonResponse(response_data)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-6",
+      "height": 466,
+      "startCol": ""
+    },
+    "order": 10,
+    "created_at": "2026-07-16T02:55:05.220Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 50,
+  "fields": {
+    "dashboard": 17,
+    "title": "Distribución por nivel y por escuela",
+    "chart_type": "table",
+    "function_path": "— Sin asignar —",
+    "code": "def run(request, widget):\n    df_raw = get_cached_df(widget.dashboard, sheet_name='Respuestas de formulario 1')\n    \n    # 1. Add 'Nivel' column\n    df = add_nivel_column(df_raw.copy())\n    \n    # 2. Apply active filters\n    df = apply_active_filters(df, request, widget)\n\n    columna_categoria = 'Escuela a la que pertenece'\n    columna_valor = 'Nivel'\n    \n    # Define expected Nivel values to ensure all columns are always present,\n    # regardless of whether they appear in the filtered data.\n    expected_nivel_values = [\"Nuevo Ingreso\", \"Regular\", \"Termino\"]\n    \n    # Pre-calculate `campos_map` and `field_pct_to_valor_map` based on expected values.\n    # This ensures consistent field names for the columns.\n    usados_for_fields = set() \n    campos_map = {} # valor -> (field_conteo, field_pct)\n    field_pct_to_valor_map = {} # field_pct -> original_valor (for title generation)\n\n    for valor in expected_nivel_values:\n        field_valor = _campo_desde_valor(valor, usados_for_fields)\n        field_pct = \"pct_\" + field_valor[len(\"resp_\"):] \n        campos_map[valor] = (field_valor, field_pct)\n        field_pct_to_valor_map[field_pct] = valor \n\n    # 3. Manually construct the columns list to ensure desired order and presence,\n    # and apply specific title modifications as requested.\n    columns = [{\"title\": \"Escuela\", \"field\": columna_categoria}]\n    for valor in expected_nivel_values:\n        field_valor, field_pct = campos_map[valor]\n        # Apply specific title for 'Termino' and its percentage directly here\n        if valor == 'Termino':\n            columns.append({\"title\": \"Término\", \"field\": field_valor, \"hozAlign\": \"right\"})\n            columns.append({\"title\": \"%\", \"field\": field_pct, \"hozAlign\": \"right\"}) # Changed title\n        else:\n            columns.append({\"title\": valor, \"field\": field_valor, \"hozAlign\": \"right\"})\n            columns.append({\"title\": \"%\", \"field\": field_pct, \"hozAlign\": \"right\"}) # Changed title\n    columns.append({\"title\": \"Total General\", \"field\": \"Total\", \"hozAlign\": \"right\"})\n\n    # Filter out empty categories or those matching `excluir` for column_valor\n    excluir_vals = ('No se utiliza', 'No aplica', 'N/A')\n    excluidos_lower = {str(v).strip().lower() for v in excluir_vals} | {\"\", \"nan\", \"none\", \"nat\"}\n\n    # 4. Perform the aggregation to create rows\n    rows = []\n    \n    # Get unique categories from the filtered DataFrame and sort them\n    valid_categories_df = df[columna_categoria].dropna()\n    categorias = sorted(valid_categories_df.unique())\n\n    for cat in categorias:\n        sub_df = df[df[columna_categoria] == cat]\n        \n        # Count occurrences of 'Nivel' values within this category, filtering excluded values\n        # Only count values that are in expected_nivel_values or that are not explicitly excluded\n        sub_nivel_counts_series = sub_df[columna_valor].astype(str).str.strip()\n        sub_nivel_counts = {}\n        for val in sub_nivel_counts_series:\n            if val.lower() not in excluidos_lower and val in expected_nivel_values:\n                sub_nivel_counts[val] = sub_nivel_counts.get(val, 0) + 1\n        \n        fila = {columna_categoria: _truncar(cat)}\n        \n        # Calculate the total for this category considering only the expected_nivel_values\n        total_for_cat = sum(sub_nivel_counts.get(valor, 0) for valor in expected_nivel_values)\n        \n        # Populate fields for each expected Nivel value, including 0 for missing ones\n        for valor in expected_nivel_values:\n            field_valor, field_pct = campos_map[valor]\n            conteo = sub_nivel_counts.get(valor, 0) # Get count, 0 if not present\n            \n            fila[field_valor] = conteo\n            fila[field_pct] = f\"{round(conteo / total_for_cat * 100, 2)}%\" if total_for_cat else \"0%\"\n        \n        fila[\"Total\"] = total_for_cat\n        rows.append(fila)\n\n    # 5. Calculate the grand total row (\"Total\")\n    grand_total_row = {columna_categoria: 'Total'} \n    grand_total_count_overall = 0\n\n    # Calculate total counts for each 'Nivel' value across the entire filtered DataFrame\n    overall_nivel_counts = {}\n    df_nivel_filtered = df[columna_valor].astype(str).str.strip()\n    for val in df_nivel_filtered:\n        if val.lower() not in excluidos_lower and val in expected_nivel_values:\n            overall_nivel_counts[val] = overall_nivel_counts.get(val, 0) + 1\n\n    for valor in expected_nivel_values:\n        field_valor, _ = campos_map[valor]\n        count_for_valor = overall_nivel_counts.get(valor, 0) # Get count, 0 if not present\n        grand_total_row[field_valor] = count_for_valor\n        grand_total_count_overall += count_for_valor\n\n    # Calculate overall percentages for each 'Nivel' value\n    for valor in expected_nivel_values:\n        field_valor, field_pct = campos_map[valor]\n        count_for_valor = grand_total_row[field_valor] \n        grand_total_row[field_pct] = f\"{round(count_for_valor / grand_total_count_overall * 100, 2)}%\" if grand_total_count_overall else \"0%\"\n    \n    grand_total_row[\"Total\"] = grand_total_count_overall \n\n    # Add the grand total row to the results\n    rows.append(grand_total_row)\n\n    return JsonResponse({\"columns\": columns, \"rows\": rows})",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-12",
+      "height": 351,
+      "startCol": "",
+      "pageSize": 10,
+      "showPagination": false,
+      "boldLastRow": true
+    },
+    "order": 11,
+    "created_at": "2026-07-16T03:09:11.048Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 77,
+  "fields": {
+    "dashboard": 17,
+    "title": "Resumen por Recinto",
+    "chart_type": "table",
+    "function_path": "— Sin asignar —",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas de formulario 1')\n\n    # Aplicar la función compartida para agregar la columna 'Nivel'\n    df = add_nivel_column(df)\n\n    # Aplicar los filtros activos del tablero\n    df = apply_active_filters(df, request, widget)\n\n    if df.empty:\n        return JsonResponse({\"columns\": [], \"rows\": []})\n\n    # Agrupar por 'Recinto:' y calcular Cantidad\n    grouped_df = df.groupby('Recinto:').size().reset_index(name='Cantidad')\n\n    # Calcular el total para el porcentaje\n    total_cantidad = grouped_df['Cantidad'].sum()\n\n    # Calcular Porciento, evitando el error de serialización de int64\n    if total_cantidad > 0:\n        grouped_df['Porciento'] = (grouped_df['Cantidad'] / total_cantidad * 100).round(2).astype(str) + '%'\n    else:\n        grouped_df['Porciento'] = '0.00%' # Manejar el caso de total_cantidad = 0\n\n    # Preparar las columnas para el widget de tabla\n    columns = [\n        {\"title\": \"Recinto\", \"field\": \"Recinto:\"},\n        {\"title\": \"Cantidad\", \"field\": \"Cantidad\"},\n        {\"title\": \"Porciento\", \"field\": \"Porciento\"}\n    ]\n\n    # Preparar las filas para el widget de tabla\n    rows = grouped_df.to_dict(orient=\"records\")\n\n    # Agregar la fila de total\n    total_row = {\n        \"Recinto:\": \"Total\",\n        \"Cantidad\": total_cantidad,\n        \"Porciento\": \"100.00%\"\n    }\n    rows.append(total_row)\n\n    return JsonResponse({\n        \"columns\": columns,\n        \"rows\": rows\n    })",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-6",
+      "height": 300,
+      "startCol": "md:Fluido",
+      "pageSize": 10,
+      "showPagination": false,
+      "boldLastRow": true
+    },
+    "order": 5,
+    "created_at": "2026-07-16T18:22:39.106Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 78,
+  "fields": {
+    "dashboard": 17,
+    "title": "Nivel de Satisfacción",
+    "chart_type": "table",
+    "function_path": "— Sin asignar —",
+    "code": "def run(request, widget):\n    \"\"\"\n    Retorna, por Categoria, el conteo y % de cada valor de 'Respuesta'\n    ('Completamente satisfecho', 'Satisfecho', etc.), mas el total de respuestas.\n    Retorna formato compatible con Tabulator: { columns: [{title, field}], rows: [{...}] }.\n    \"\"\"\n    df = get_cached_df(widget.dashboard, \"Respuestas Indique su nivel de satisfacción con los siguientes aspectos\")\n    df = add_nivel_column(df) # Corregido de _add_nivel_column a add_nivel_column\n    df = apply_active_filters(df, request, widget)\n\n    return JsonResponse(tabla_conteo_por_respuesta(df))",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-12",
+      "height": 609,
+      "startCol": "",
+      "pageSize": 100,
+      "showPagination": true,
+      "boldLastRow": false
+    },
+    "order": 12,
+    "created_at": "2026-07-16T18:28:13.083Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 81,
+  "fields": {
+    "dashboard": 17,
+    "title": "Nivel",
+    "chart_type": "filter",
+    "function_path": "filtro_nivel",
+    "code": "def run(request, widget):\n    options_data = [\"Nuevo Ingreso\", \"Regular\", \"Término\"]\n    \n    active_filters = get_active_filters(request, widget)\n    selected_value = active_filters.get(widget.filter_field, None)\n\n    return JsonResponse({\n        \"options\": options_data,\n        \"selected\": selected_value\n    })",
+    "prompt": "agrega un funcion para un tipo filter q devuelve estos valores estaticos data = [\"Nuevo Ingreso\", \"Regular\", \"Término\"], el campo de este filtro es Nivel, servirá para saber el valor q esta seleccionado",
+    "properties": {
+      "width": "md:col-span-2",
+      "startCol": "md:col-start-11",
+      "filterField": "Nivel"
+    },
+    "order": 2,
+    "created_at": "2026-07-16T20:24:46.189Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 82,
+  "fields": {
+    "dashboard": 17,
+    "title": "Escuela a la que pertenece",
+    "chart_type": "filter",
+    "function_path": "filtro_escuelas",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas de formulario 1')\n    \n    if 'Escuela a la que pertenece' not in df.columns:\n        return JsonResponse({\"options\": [], \"selected\": None})\n\n    options = df['Escuela a la que pertenece'].dropna().unique().tolist()\n    options.sort(reverse=True)\n\n    active_filters = get_active_filters(request, widget)\n    selected_value = active_filters.get(widget.filter_field, None)\n\n    return JsonResponse({\n        \"options\": options,\n        \"selected\": selected_value\n    })\n",
+    "prompt": "Codigo para un tipo 'filter' q devuelva la columna 'Escuela a la que pertenece' de la pestaña 'Respuestas de formulario 1'",
+    "properties": {
+      "width": "md:col-span-3",
+      "startCol": "md:col-start-8",
+      "filterField": "Escuela a la que pertenece"
+    },
+    "order": 1,
+    "created_at": "2026-07-16T20:25:02.390Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 83,
+  "fields": {
+    "dashboard": 17,
+    "title": "Nivel de Satisfacción",
+    "chart_type": "bar",
+    "function_path": "— Sin asignar —",
+    "code": "def run(request, widget):\n    \"\"\"\n    Retorna, por Categoria, el % de cada valor de 'Respuesta'\n    ('Completamente satisfecho', 'Satisfecho', etc.).\n    Retorna formato compatible con ApexCharts (grafico de barras apiladas):\n    { series: [{ name, data }], categories: [...] }.\n    \"\"\"\n    df = get_cached_df(widget.dashboard, \"Respuestas Indique su nivel de satisfacción con los siguientes aspectos\")\n    df = add_nivel_column(df) # Corregido: La función compartida se llama 'add_nivel_column', no '_add_nivel_column'\n    df = apply_active_filters(df, request, widget)\n\n    return JsonResponse(distribucion_por_respuesta(df))",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-12",
+      "height": 662,
+      "startCol": "",
+      "horizontal": false,
+      "yAxisWidth": null,
+      "stacked": false,
+      "dataLabelFormatter": "{value} %",
+      "chartWidth": 2500
+    },
+    "order": 13,
+    "created_at": "2026-07-16T20:54:07.322Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 91,
+  "fields": {
+    "dashboard": 17,
+    "title": "",
+    "chart_type": "kpi",
+    "function_path": "— Sin asignar —",
+    "code": "def run(request, widget):\n    df_destinatarios = get_cached_df(widget.dashboard, sheet_name='Destinatarios')\n    df_destinatarios_filtered = apply_active_filters(df_destinatarios, request, widget)\n\n    total_participantes = len(df_destinatarios_filtered)\n    total_notificados = df_destinatarios_filtered[df_destinatarios_filtered['Estado'] == 'ENVIADO'].shape[0]\n\n    df_respuestas = get_cached_df(widget.dashboard, sheet_name='Respuestas de formulario 1')\n    df_respuestas_filtered = apply_active_filters(df_respuestas, request, widget)\n    \n    total_respuestas = len(df_respuestas_filtered)\n\n    return JsonResponse({\n        \"main_value\": total_participantes,\n        \"main_label\": \"Participantes\",\n        \"secondary_values\": [\n            {\"label\": \"Notificados\", \"value\": total_notificados},\n            {\"label\": \"Respuestas\", \"value\": total_respuestas}\n        ]\n    })",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-4",
+      "height": 220,
+      "startCol": "md:Fluido"
+    },
+    "order": 3,
+    "created_at": "2026-07-17T02:58:10.579Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 92,
+  "fields": {
+    "dashboard": 17,
+    "title": "Respuestas recibidas por día",
+    "chart_type": "line",
+    "function_path": "— Sin asignar —",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas de formulario 1')\n    df = apply_active_filters(df, request, widget)\n\n    if 'Marca temporal' not in df.columns:\n        return JsonResponse({\"series\": [], \"categories\": []})\n\n    # Convert 'Marca temporal' to datetime and extract date part\n    df['Marca temporal'] = pd.to_datetime(df['Marca temporal'], format='%d/%m/%Y %H:%M:%S', errors='coerce')\n    df['Fecha'] = df['Marca temporal'].dt.strftime('%d/%m/%Y')\n\n    # Drop rows where 'Marca temporal' conversion failed (NaT)\n    df.dropna(subset=['Fecha'], inplace=True)\n\n    # Group by date and count records\n    grouped_data = df.groupby('Fecha').size().reset_index(name='Total Registros')\n\n    # Convert 'Fecha' back to datetime for sorting\n    grouped_data['Fecha_dt'] = pd.to_datetime(grouped_data['Fecha'], format='%d/%m/%Y', errors='coerce')\n    grouped_data.sort_values(by='Fecha_dt', inplace=True)\n\n    # Drop the temporary datetime column\n    grouped_data.drop(columns=['Fecha_dt'], inplace=True)\n\n    categories = grouped_data['Fecha'].tolist()\n    data = grouped_data['Total Registros'].tolist()\n\n    return JsonResponse({\n        \"series\": [{\"name\": \"Total Registros\", \"data\": data}],\n        \"categories\": categories\n    })",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-8",
+      "height": 218,
+      "startCol": "md:Fluido"
+    },
+    "order": 4,
+    "created_at": "2026-07-17T12:29:44.928Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 94,
+  "fields": {
+    "dashboard": 17,
+    "title": "Nivel de aprendizaje",
+    "chart_type": "bar",
+    "function_path": "distribucion_nivel_aprendizaje",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, \"Respuestas Indique el nivel de aprendizaje que usted considera ha obtenido con el uso de las siguien\")\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n    return JsonResponse(distribucion_por_respuesta(df))",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-6",
+      "height": 459,
+      "startCol": "",
+      "horizontal": false,
+      "stacked": false,
+      "dataLabelFormatter": "{value} %"
+    },
+    "order": 15,
+    "created_at": "2026-07-17T21:55:10.451Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 95,
+  "fields": {
+    "dashboard": 17,
+    "title": "Valoración",
+    "chart_type": "table",
+    "function_path": "resumen_valoracion",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, \"Respuestas Valoración\")\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    return JsonResponse(tabla_conteo_por_respuesta(df))",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-6",
+      "height": 300,
+      "startCol": "",
+      "pageSize": 10,
+      "showPagination": true,
+      "boldLastRow": false
+    },
+    "order": 16,
+    "created_at": "2026-07-17T22:10:45.323Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 96,
+  "fields": {
+    "dashboard": 17,
+    "title": "Valoración",
+    "chart_type": "bar",
+    "function_path": "— Sin asignar —",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, \"Respuestas Valoración\")\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    return JsonResponse(distribucion_por_respuesta(df))",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-6",
+      "height": 300,
+      "startCol": "",
+      "horizontal": false,
+      "stacked": false,
+      "dataLabelFormatter": "{value} %"
+    },
+    "order": 17,
+    "created_at": "2026-07-17T22:11:08.947Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 98,
+  "fields": {
+    "dashboard": 17,
+    "title": "Nivel de Aprendizaje",
+    "chart_type": "table",
+    "function_path": "— Sin asignar —",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, \"Respuestas Indique el nivel de aprendizaje que usted considera ha obtenido con el uso de las siguien\")\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    return JsonResponse(tabla_conteo_por_respuesta(df))",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-6",
+      "height": 459,
+      "startCol": "",
+      "pageSize": 10,
+      "showPagination": true,
+      "boldLastRow": false
+    },
+    "order": 14,
+    "created_at": "2026-07-17T23:28:32.641Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 108,
+  "fields": {
+    "dashboard": 17,
+    "title": "Disponibilidad de Recursos",
+    "chart_type": "table",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas Disponibilidad de recursos:')\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    data = tabla_conteo_por_respuesta(\n        df,\n        columna_categoria='Categoría',\n        columna_valor='Respuesta'\n    )\n    return JsonResponse(data)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-6",
+      "height": 530,
+      "startCol": "",
+      "pageSize": 10,
+      "showPagination": true,
+      "boldLastRow": false
+    },
+    "order": 18,
+    "created_at": "2026-07-18T18:33:51.752Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 109,
+  "fields": {
+    "dashboard": 17,
+    "title": "Disponibilidad de Recursos",
+    "chart_type": "bar",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas Disponibilidad de recursos:')\n    df = apply_active_filters(df, request, widget)\n\n    result = distribucion_por_respuesta(df, columna_categoria='Categoría', columna_valor='Respuesta')\n\n    return JsonResponse(result)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-6",
+      "height": 530,
+      "startCol": "",
+      "horizontal": false,
+      "stacked": false,
+      "dataLabelFormatter": "{value} %",
+      "chartWidth": null
+    },
+    "order": 19,
+    "created_at": "2026-07-18T18:35:10.609Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 111,
+  "fields": {
+    "dashboard": 17,
+    "title": "Frecuencia de uso de recursos",
+    "chart_type": "table",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas Indique la frecuencia en que usted utiliza los siguientes recursos en su proceso educativ')\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    result = tabla_conteo_por_respuesta(\n        df,\n        columna_categoria='Categoría',\n        columna_valor='Respuesta'\n    )\n\n    return JsonResponse(result)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-6",
+      "height": 352,
+      "startCol": "",
+      "pageSize": 10,
+      "showPagination": true,
+      "boldLastRow": false
+    },
+    "order": 20,
+    "created_at": "2026-07-18T18:40:28.166Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 112,
+  "fields": {
+    "dashboard": 17,
+    "title": "Frecuencia de uso de recursos",
+    "chart_type": "bar",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas Indique la frecuencia en que usted utiliza los siguientes recursos en su proceso educativ')\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    result = distribucion_por_respuesta(df, columna_categoria='Categoría', columna_valor='Respuesta')\n\n    return JsonResponse(result)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-6",
+      "height": 352,
+      "startCol": "",
+      "horizontal": false,
+      "stacked": false
+    },
+    "order": 21,
+    "created_at": "2026-07-18T18:40:55.055Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 113,
+  "fields": {
+    "dashboard": 17,
+    "title": "Satisfacción con el uso de los medios",
+    "chart_type": "table",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas Indique su nivel de satisfacción con el uso de los siguientes medios para comunicarse con')\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    if df.empty:\n        return JsonResponse({\"columns\": [], \"rows\": []})\n\n    data = tabla_conteo_por_respuesta(\n        df,\n        columna_categoria='Categoría',\n        columna_valor='Respuesta'\n    )\n\n    return JsonResponse(data)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-12",
+      "height": 407,
+      "startCol": "",
+      "pageSize": 10,
+      "showPagination": true,
+      "boldLastRow": false
+    },
+    "order": 22,
+    "created_at": "2026-07-18T18:43:28.465Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 114,
+  "fields": {
+    "dashboard": 17,
+    "title": "Satisfacción con el uso de los medios",
+    "chart_type": "bar",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas Indique su nivel de satisfacción con el uso de los siguientes medios para comunicarse con')\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    data = distribucion_por_respuesta(\n        df,\n        columna_categoria='Categoría',\n        columna_valor='Respuesta'\n    )\n\n    return JsonResponse(data)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-12",
+      "height": 489,
+      "startCol": "",
+      "horizontal": false,
+      "stacked": false,
+      "dataLabelFormatter": "{value} %"
+    },
+    "order": 23,
+    "created_at": "2026-07-18T18:44:26.355Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 115,
+  "fields": {
+    "dashboard": 17,
+    "title": "Departamento de Registro",
+    "chart_type": "table",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas Departamento de Registro:')\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    # La función tabla_conteo_por_respuesta ya agrupa por 'columna_categoria'\n    # y desglosa los conteos de 'columna_valor' por cada respuesta única.\n    result = tabla_conteo_por_respuesta(\n        df,\n        columna_categoria='Categoría',\n        columna_valor='Respuesta'\n    )\n\n    return JsonResponse(result)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-12",
+      "height": 494,
+      "startCol": "",
+      "pageSize": 10,
+      "showPagination": true,
+      "boldLastRow": false
+    },
+    "order": 24,
+    "created_at": "2026-07-18T18:59:32.510Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 116,
+  "fields": {
+    "dashboard": 17,
+    "title": "Departamento de Registro",
+    "chart_type": "bar",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas Departamento de Registro:')\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    result = distribucion_por_respuesta(\n        df,\n        columna_categoria='Categoría',\n        columna_valor='Respuesta'\n    )\n\n    return JsonResponse(result)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-12",
+      "height": 438,
+      "startCol": "",
+      "horizontal": false,
+      "stacked": false,
+      "dataLabelFormatter": "{value} %"
+    },
+    "order": 25,
+    "created_at": "2026-07-18T19:00:14.615Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 117,
+  "fields": {
+    "dashboard": 17,
+    "title": "Departamento de Caja",
+    "chart_type": "table",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas Departamento de Caja:')\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    # La función tabla_conteo_por_respuesta ya agrupa por categoría y\n    # desglosa el conteo de respuestas, incluyendo su porcentaje.\n    # El usuario pidió \"el total de la columna 'Respuesta' por cada categoría\".\n    # La implementación actual de tabla_conteo_por_respuesta no incluye una columna 'Total',\n    # sino que muestra el conteo por cada respuesta única y su porcentaje.\n    # Si el usuario quiere un *conteo total* de todas las respuestas por categoría,\n    # necesitaríamos modificar o adaptar la función.\n    # Sin embargo, dado el nombre de la función y su descripción (\"desglosa el conteo\n    # de `columna_valor` en una columna por cada valor único\"),\n    # se interpreta que se espera la salida tal cual la provee.\n\n    result = tabla_conteo_por_respuesta(\n        df,\n        columna_categoria='Categoría',\n        columna_valor='Respuesta'\n    )\n\n    return JsonResponse(result)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-12",
+      "height": 496,
+      "startCol": "",
+      "pageSize": 10,
+      "showPagination": true,
+      "boldLastRow": false
+    },
+    "order": 26,
+    "created_at": "2026-07-18T19:10:30.491Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 118,
+  "fields": {
+    "dashboard": 17,
+    "title": "Departamento de Caja",
+    "chart_type": "bar",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas Departamento de Caja:')\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    result = distribucion_por_respuesta(df, columna_categoria='Categoría', columna_valor='Respuesta')\n\n    return JsonResponse(result)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-12",
+      "height": 397,
+      "startCol": "",
+      "horizontal": false,
+      "stacked": false,
+      "dataLabelFormatter": "{value} %"
+    },
+    "order": 27,
+    "created_at": "2026-07-18T19:10:50.243Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 119,
+  "fields": {
+    "dashboard": 17,
+    "title": "Departamento de Admisiones",
+    "chart_type": "table",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas Departamento de Admisiones:')\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    # La función tabla_conteo_por_respuesta ya agrupa por 'columna_categoria'\n    # y desglosa los conteos de 'columna_valor' por cada valor único.\n    # Excluye automáticamente valores vacíos o nulos, y los definidos en 'excluir'.\n    # No se pide una columna de total explícita, la función ya retorna los conteos por respuesta.\n    result = tabla_conteo_por_respuesta(\n        df,\n        columna_categoria='Categoría',\n        columna_valor='Respuesta'\n    )\n\n    return JsonResponse(result)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-12",
+      "height": 515,
+      "startCol": "",
+      "pageSize": 10,
+      "showPagination": true,
+      "boldLastRow": false
+    },
+    "order": 28,
+    "created_at": "2026-07-18T19:12:35.691Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 120,
+  "fields": {
+    "dashboard": 17,
+    "title": "Adminisiones",
+    "chart_type": "bar",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas Departamento de Admisiones:')\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    if df.empty:\n        return JsonResponse({\"series\": [], \"categories\": []})\n\n    chart_data = distribucion_por_respuesta(df, columna_categoria='Categoría', columna_valor='Respuesta')\n\n    return JsonResponse(chart_data)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-12",
+      "height": 440,
+      "startCol": "",
+      "horizontal": false,
+      "stacked": false
+    },
+    "order": 29,
+    "created_at": "2026-07-18T19:12:49.651Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 121,
+  "fields": {
+    "dashboard": 17,
+    "title": "Biblioteca",
+    "chart_type": "table",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas Biblioteca:')\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    # Use the shared function for table widgets\n    result = tabla_conteo_por_respuesta(\n        df,\n        columna_categoria='Categoría',\n        columna_valor='Respuesta'\n    )\n\n    return JsonResponse(result)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-12",
+      "height": 483,
+      "startCol": "",
+      "pageSize": 10,
+      "showPagination": true,
+      "boldLastRow": false
+    },
+    "order": 30,
+    "created_at": "2026-07-18T19:16:53.461Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 122,
+  "fields": {
+    "dashboard": 17,
+    "title": "Biblioteca",
+    "chart_type": "bar",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas Biblioteca:')\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    chart_data = distribucion_por_respuesta(\n        df,\n        columna_categoria='Categoría',\n        columna_valor='Respuesta'\n    )\n\n    return JsonResponse(chart_data)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-12",
+      "height": 419,
+      "startCol": "",
+      "horizontal": false,
+      "stacked": false
+    },
+    "order": 31,
+    "created_at": "2026-07-18T19:17:11.773Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 123,
+  "fields": {
+    "dashboard": 17,
+    "title": "Director de Esuela",
+    "chart_type": "table",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas Director de la escuela/programa al que pertenece:')\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    data = tabla_conteo_por_respuesta(\n        df,\n        columna_categoria='Categoría',\n        columna_valor='Respuesta'\n    )\n\n    return JsonResponse(data)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-12",
+      "height": 470,
+      "startCol": "",
+      "pageSize": 10,
+      "showPagination": true,
+      "boldLastRow": false
+    },
+    "order": 32,
+    "created_at": "2026-07-18T19:18:49.494Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 124,
+  "fields": {
+    "dashboard": 17,
+    "title": "Gráfico de Barras",
+    "chart_type": "bar",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas Director de la escuela/programa al que pertenece:')\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    # Utilizar la función compartida distribucion_por_respuesta según lo solicitado.\n    # Esta función agrupará por 'Categoría' y calculará el porcentaje de cada\n    # valor único en 'Respuesta' dentro de cada categoría, con un formato\n    # adecuado para gráficos de barras.\n    response_data = distribucion_por_respuesta(\n        df=df,\n        columna_categoria='Categoría',\n        columna_valor='Respuesta'\n        # La función distribucion_por_respuesta ya tiene un parámetro 'excluir'\n        # con valores por defecto que cubren los casos comunes de respuestas no válidas.\n    )\n\n    return JsonResponse(response_data)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-12",
+      "height": 407,
+      "startCol": "",
+      "horizontal": false,
+      "stacked": false,
+      "dataLabelFormatter": "{value} %"
+    },
+    "order": 33,
+    "created_at": "2026-07-18T19:18:59.014Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 125,
+  "fields": {
+    "dashboard": 17,
+    "title": "Tutoría Virtual",
+    "chart_type": "table",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas Tutoría Virtual:')\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    result = tabla_conteo_por_respuesta(\n        df,\n        columna_categoria='Categoría',\n        columna_valor='Respuesta'\n    )\n\n    return JsonResponse(result)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-6",
+      "height": 300,
+      "startCol": "",
+      "pageSize": 10,
+      "showPagination": true,
+      "boldLastRow": false
+    },
+    "order": 34,
+    "created_at": "2026-07-18T19:23:58.017Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 126,
+  "fields": {
+    "dashboard": 17,
+    "title": "Tutoría virtual",
+    "chart_type": "bar",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas Tutoría Virtual:')\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    data = distribucion_por_respuesta(\n        df,\n        columna_categoria='Categoría',\n        columna_valor='Respuesta'\n    )\n\n    return JsonResponse(data)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-6",
+      "height": 300,
+      "startCol": "",
+      "horizontal": false,
+      "stacked": false
+    },
+    "order": 35,
+    "created_at": "2026-07-18T19:24:33.634Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 127,
+  "fields": {
+    "dashboard": 17,
+    "title": "Entorno General",
+    "chart_type": "table",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas Entorno General:')\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    data = tabla_conteo_por_respuesta(\n        df,\n        columna_categoria='Categoría',\n        columna_valor='Respuesta'\n    )\n\n    return JsonResponse(data)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-12",
+      "height": 423,
+      "startCol": "",
+      "pageSize": 10,
+      "showPagination": true,
+      "boldLastRow": false
+    },
+    "order": 36,
+    "created_at": "2026-07-18T19:25:21.330Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 128,
+  "fields": {
+    "dashboard": 17,
+    "title": "Entorno General",
+    "chart_type": "bar",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas Entorno General:')\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    if df.empty:\n        return JsonResponse({\"series\": [], \"categories\": []})\n\n    chart_data = distribucion_por_respuesta(\n        df,\n        columna_categoria='Categoría',\n        columna_valor='Respuesta'\n    )\n\n    return JsonResponse(chart_data)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-12",
+      "height": 410,
+      "startCol": "",
+      "horizontal": false,
+      "stacked": false
+    },
+    "order": 37,
+    "created_at": "2026-07-18T19:27:19.698Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 129,
+  "fields": {
+    "dashboard": 17,
+    "title": "La Plataforma es fácil de usar",
+    "chart_type": "table",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas Esta plataforma y sus respectivos módulos es simple y fácil de usar:')\n    \n    df = add_nivel_column(df)\n\n    df_filtered = apply_active_filters(df, request, widget)\n\n    table_data = tabla_conteo_por_respuesta(\n        df=df_filtered,\n        columna_categoria='Categoría',\n        columna_valor='Respuesta'\n    )\n    \n    return JsonResponse(table_data)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-12",
+      "height": 355,
+      "startCol": "",
+      "pageSize": 10,
+      "showPagination": true,
+      "boldLastRow": false
+    },
+    "order": 38,
+    "created_at": "2026-07-18T19:30:37.341Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 130,
+  "fields": {
+    "dashboard": 17,
+    "title": "La plataforma es fácil de usar",
+    "chart_type": "bar",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas Esta plataforma y sus respectivos módulos es simple y fácil de usar:')\n\n    df = add_nivel_column(df)\n\n    df = apply_active_filters(df, request, widget)\n\n    chart_data = distribucion_por_respuesta(\n        df,\n        columna_categoria='Categoría',\n        columna_valor='Respuesta'\n    )\n\n    return JsonResponse(chart_data)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-12",
+      "height": 364,
+      "startCol": "",
+      "horizontal": false,
+      "stacked": false
+    },
+    "order": 39,
+    "created_at": "2026-07-18T19:32:10.326Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 131,
+  "fields": {
+    "dashboard": 17,
+    "title": "Más sobre la Plataforma",
+    "chart_type": "table",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas Plataforma:')\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    data = tabla_conteo_por_respuesta(df, columna_categoria='Categoría', columna_valor='Respuesta')\n\n    return JsonResponse(data)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-6",
+      "height": 378,
+      "startCol": "",
+      "pageSize": 10,
+      "showPagination": true,
+      "boldLastRow": false
+    },
+    "order": 40,
+    "created_at": "2026-07-18T19:34:04.319Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 132,
+  "fields": {
+    "dashboard": 17,
+    "title": "Más Sobre la Plataforma",
+    "chart_type": "bar",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas Plataforma:')\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    chart_data = distribucion_por_respuesta(df, columna_categoria='Categoría', columna_valor='Respuesta')\n    \n    return JsonResponse(chart_data)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-6",
+      "height": 377,
+      "startCol": "",
+      "horizontal": false,
+      "stacked": false
+    },
+    "order": 41,
+    "created_at": "2026-07-18T19:34:45.384Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 133,
+  "fields": {
+    "dashboard": 17,
+    "title": "Experiencia",
+    "chart_type": "table",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas En general, mi  experiencia ha sido satisfactoria interactuando con la plataforma en cada')\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    data = tabla_conteo_por_respuesta(\n        df,\n        columna_categoria='Categoría',\n        columna_valor='Respuesta'\n    )\n    \n    return JsonResponse(data)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-6",
+      "height": 384,
+      "startCol": "",
+      "pageSize": 10,
+      "showPagination": true,
+      "boldLastRow": false
+    },
+    "order": 42,
+    "created_at": "2026-07-18T19:37:00.505Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 135,
+  "fields": {
+    "dashboard": 17,
+    "title": "Experiencia",
+    "chart_type": "bar",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas En general, mi  experiencia ha sido satisfactoria interactuando con la plataforma en cada')\n    df = add_nivel_column(df)\n    df = apply_active_filters(df, request, widget)\n\n    data = distribucion_por_respuesta(df, columna_categoria='Categoría', columna_valor='Respuesta')\n    return JsonResponse(data)",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-6",
+      "height": 385,
+      "startCol": "",
+      "horizontal": false,
+      "stacked": false
+    },
+    "order": 43,
+    "created_at": "2026-07-18T19:39:13.203Z"
+  }
+},
+{
+  "model": "sheets_reports.widgetinstance",
+  "pk": 137,
+  "fields": {
+    "dashboard": 17,
+    "title": "Recinto",
+    "chart_type": "filter",
+    "function_path": "",
+    "code": "def run(request, widget):\n    df = get_cached_df(widget.dashboard, sheet_name='Respuestas de formulario 1')\n\n    options = []\n    selected_value = None\n\n    if 'Recinto:' in df.columns:\n        # Get unique values, drop NaNs, convert to string, and sort\n        options = df['Recinto:'].dropna().astype(str).unique().tolist()\n        options.sort()\n\n    # Get the currently selected value for this filter field\n    active_filters = get_active_filters(request, widget)\n    selected_value = active_filters.get(widget.filter_field, None)\n\n    return JsonResponse({\n        \"options\": options,\n        \"selected\": selected_value,\n    })",
+    "prompt": "",
+    "properties": {
+      "width": "md:col-span-3",
+      "startCol": "md:col-start-5",
+      "filterField": "Recinto:"
+    },
+    "order": 0,
+    "created_at": "2026-07-19T04:29:27.075Z"
+  }
+},
+{
+  "model": "sheets_reports.dashboardutilfunction",
+  "pk": 1,
+  "fields": {
+    "dashboard": 17,
+    "name": "add_nivel_column",
+    "signature": "(df)",
+    "description": "",
+    "category": "Personalizada",
+    "source_code": "def add_nivel_column(df):\n    if \"Período que está cursando\" not in df.columns:\n        return df\n\n    def _get_nivel_from_periodo(periodo):\n        if pd.isna(periodo):\n            return \"Regular\"\n        periodo_str = str(periodo).lower()\n        if \"primer\" in periodo_str:\n            return \"Nuevo Ingreso\"\n        elif \"ultimo\" in periodo_str or \"termino\" in periodo_str:\n            return \"Termino\"\n        else:\n            return \"Regular\"\n\n    df[\"Nivel\"] = df[\"Período que está cursando\"].apply(_get_nivel_from_periodo)\n    return df",
+    "created_from_prompt": "de la funcion 'tabla_conteo_por_respuesta' elimina la columna 'Total'",
+    "created_at": "2026-07-19T03:32:16.548Z",
+    "is_active": true
+  }
+},
+{
+  "model": "sheets_reports.dashboardutilfunction",
+  "pk": 2,
+  "fields": {
+    "dashboard": 17,
+    "name": "_truncar",
+    "signature": "(texto: str, largo: int=30) -> str",
+    "description": "Trunca un texto al largo pasado por parámetro",
+    "category": "Personalizada",
+    "source_code": "def _truncar(texto: str, largo: int = 30) -> str:\n    \"\"\" Trunca un texto al largo pasado por parámetro\"\"\"\n    texto = str(texto)\n    return texto[:largo] + \"...\" if len(texto) > largo else texto",
+    "created_from_prompt": "de la funcion 'tabla_conteo_por_respuesta' elimina la columna 'Total'",
+    "created_at": "2026-07-19T03:32:16.548Z",
+    "is_active": true
+  }
+},
+{
+  "model": "sheets_reports.dashboardutilfunction",
+  "pk": 3,
+  "fields": {
+    "dashboard": 17,
+    "name": "distribucion_por_respuesta",
+    "signature": "(df, columna_categoria: str='Categoría', columna_valor: str='Respuesta', excluir=('No se utiliza', 'No aplica', 'N/A')) -> dict",
+    "description": "Agrupa `df` por `columna_categoria` y calcula, para cada valor único de\n`columna_valor`, el % que representa dentro de cada categoría. Formato\ncompatible con ApexCharts (barras, líneas, dona):\n{ series: [{name, data}], categories: [...] }.",
+    "category": "Personalizada",
+    "source_code": "def distribucion_por_respuesta(\n    df,\n    columna_categoria: str = \"Categoría\",\n    columna_valor: str = \"Respuesta\",\n    excluir=(\"No se utiliza\", \"No aplica\", \"N/A\"),\n) -> dict:\n    \"\"\"\n    Agrupa `df` por `columna_categoria` y calcula, para cada valor único de\n    `columna_valor`, el % que representa dentro de cada categoría. Formato\n    compatible con ApexCharts (barras, líneas, dona):\n    { series: [{name, data}], categories: [...] }.\n    \"\"\"\n    if columna_categoria not in df.columns or columna_valor not in df.columns:\n        return {\"series\": [], \"categories\": []}\n\n    excluidos = {str(v).strip().lower() for v in excluir} | {\"\", \"nan\", \"none\", \"nat\"}\n\n    valores_col = df[columna_valor].astype(str).str.strip()\n    valores_unicos = sorted(v for v in valores_col.unique() if v.lower() not in excluidos)\n\n    categorias = sorted(df[columna_categoria].dropna().unique())\n    series_data = {valor: [] for valor in valores_unicos}\n\n    for cat in categorias:\n        sub_valores = df.loc[df[columna_categoria] == cat, columna_valor].astype(str).str.strip()\n        total = int(sub_valores.isin(valores_unicos).sum())\n        for valor in valores_unicos:\n            conteo = int((sub_valores == valor).sum())\n            series_data[valor].append(round(conteo / total * 100, 2) if total else 0)\n\n    return {\n        \"series\": [{\"name\": valor, \"data\": series_data[valor]} for valor in valores_unicos],\n        \"categories\": [_truncar(cat) for cat in categorias],\n    }",
+    "created_from_prompt": "de la funcion 'tabla_conteo_por_respuesta' elimina la columna 'Total'",
+    "created_at": "2026-07-19T03:32:16.548Z",
+    "is_active": true
+  }
+},
+{
+  "model": "sheets_reports.dashboardutilfunction",
+  "pk": 4,
+  "fields": {
+    "dashboard": 17,
+    "name": "_campo_desde_valor",
+    "signature": "(valor: str, usados: set) -> str",
+    "description": "Genera un nombre de campo único y limpio a partir de un valor de respuesta.\nAsegura que el campo sea único dentro del conjunto 'usados' sin usar re.",
+    "category": "Personalizada",
+    "source_code": "def _campo_desde_valor(valor: str, usados: set) -> str:\n    \"\"\"\n    Genera un nombre de campo único y limpio a partir de un valor de respuesta.\n    Asegura que el campo sea único dentro del conjunto 'usados' sin usar re.\n    \"\"\"\n    valor_str = str(valor).lower().strip()\n\n    # Reemplazar espacios con un marcador temporal único\n    temp_placeholder = \"#_#\"\n    normalized_str = valor_str.replace(\" \", temp_placeholder)\n\n    # Filtrar caracteres no alfanuméricos, manteniendo el marcador temporal\n    filtered_chars = []\n    for char in normalized_str:\n        if char.isalnum() or char == '#': # 'isalnum()' para letras y números, '#' para el placeholder\n            filtered_chars.append(char)\n    field_base_raw = \"\".join(filtered_chars)\n\n    # Reemplazar el marcador temporal con un solo guion bajo\n    field_base = field_base_raw.replace(temp_placeholder, \"_\")\n\n    # Eliminar guiones bajos iniciales/finales y colapsar múltiples guiones bajos\n    # Esto es una simplificación sin re, se asume que field_base ya tiene un solo '_'\n    # entre palabras por el reemplazo del temp_placeholder.\n    field_base = field_base.strip('_')\n    \n    if not field_base: # Si el valor original era solo caracteres especiales o vacío\n        field_base = \"respuesta\"\n\n    field_name = f\"resp_{field_base}\"\n    original_field_name = field_name\n    counter = 1\n    while field_name in usados:\n        field_name = f\"{original_field_name}_{counter}\"\n        counter += 1\n    usados.add(field_name)\n    return field_name",
+    "created_from_prompt": "de la funcion 'tabla_conteo_por_respuesta' elimina la columna 'Total'",
+    "created_at": "2026-07-19T03:32:16.548Z",
+    "is_active": true
+  }
+},
+{
+  "model": "sheets_reports.dashboardutilfunction",
+  "pk": 5,
+  "fields": {
+    "dashboard": 17,
+    "name": "tabla_conteo_por_respuesta",
+    "signature": "(df, columna_categoria: str='Categoría', columna_valor: str='Respuesta', excluir=('No se utiliza', 'No aplica', 'N/A')) -> dict",
+    "description": "Agrupa `df` por `columna_categoria` y desglosa el conteo de\n`columna_valor` en una columna por cada valor único encontrado (con su %\nal lado). Formato compatible con Tabulator:\n{ columns: [{title, field}], rows: [{...}] }.",
+    "category": "Personalizada",
+    "source_code": "def tabla_conteo_por_respuesta(\n    df,\n    columna_categoria: str = \"Categoría\",\n    columna_valor: str = \"Respuesta\",\n    excluir=('No se utiliza', 'No aplica', 'N/A'),\n) -> dict:\n    \"\"\"\n    Agrupa `df` por `columna_categoria` y desglosa el conteo de\n    `columna_valor` en una columna por cada valor único encontrado (con su %\n    al lado). Formato compatible con Tabulator:\n    { columns: [{title, field}], rows: [{...}] }.\n    \"\"\"\n    if columna_categoria not in df.columns or columna_valor not in df.columns:\n        return {\"columns\": [], \"rows\": []}\n\n    excluidos = {str(v).strip().lower() for v in excluir} | {\"\", \"nan\", \"none\", \"nat\"}\n\n    valores_col = df[columna_valor].astype(str).str.strip()\n    valores_unicos = sorted(v for v in valores_col.unique() if v.lower() not in excluidos)\n\n    usados = set()\n    campos = {}  # valor -> (field_conteo, field_pct)\n    for valor in valores_unicos:\n        field_valor = _campo_desde_valor(valor, usados)\n        # El sufijo se basa en el field_valor generado sin el prefijo 'resp_'\n        field_pct = \"pct_\" + field_valor[len(\"resp_\"):] \n        campos[valor] = (field_valor, field_pct)\n\n    columns = [{\"title\": columna_categoria, \"field\": columna_categoria}]\n    for valor in valores_unicos:\n        field_valor, field_pct = campos[valor]\n        columns.append({\"title\": valor, \"field\": field_valor, \"hozAlign\": \"right\"}) # Alineación para números\n        columns.append({\"title\": \"%\", \"field\": field_pct, \"hozAlign\": \"right\"}) # Alineación para porcentajes\n    # Se elimina la columna 'Total' aquí\n\n    rows = []\n    # Asegurarse de que las categorías también estén limpias y ordenadas\n    categorias = sorted(df[columna_categoria].dropna().unique())\n    for cat in categorias:\n        sub_valores = df.loc[df[columna_categoria] == cat, columna_valor].astype(str).str.strip()\n        total = int(sub_valores.isin(valores_unicos).sum())\n\n        fila = {columna_categoria: _truncar(cat)}\n        for valor in valores_unicos:\n            field_valor, field_pct = campos[valor]\n            conteo = int((sub_valores == valor).sum())\n            fila[field_valor] = conteo\n            fila[field_pct] = f\"{round(conteo / total * 100, 2)}%\" if total else \"0%\"\n        # Se elimina la adición de 'Total' a la fila\n        rows.append(fila)\n\n    return {\"columns\": columns, \"rows\": rows}",
+    "created_from_prompt": "de la funcion 'tabla_conteo_por_respuesta' elimina la columna 'Total'",
+    "created_at": "2026-07-19T03:32:16.549Z",
+    "is_active": true
+  }
+}
+]
