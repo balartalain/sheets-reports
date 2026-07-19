@@ -31,21 +31,21 @@ document.addEventListener('alpine:init', () => {
 
     async refreshAvailableFunctions() {
       try {
-        const r = await fetch(`/api/widget-functions/${window.DASHBOARD_SLUG}/`);
+        const r = await fetch(apiUrl(`/api/widget-functions/${window.DASHBOARD_SLUG}/`));
         this.availableFunctions = await r.json();
       } catch (e) {}
     },
 
     async loadUtils() {
       try {
-        const r = await fetch(`/api/dashboard/${this.dashboardId}/utils/`);
+        const r = await fetch(apiUrl(`/api/dashboard/${this.dashboardId}/utils/`));
         this.availableUtils = await r.json();
       } catch (e) {}
     },
 
     async loadWidgetsFromServer() {
       try {
-        const r = await fetch(`/api/dashboard/${this.dashboardId}/widgets/`);
+        const r = await fetch(apiUrl(`/api/dashboard/${this.dashboardId}/widgets/`));
         const data = await r.json();
         data.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
         this.widgets = data.map(w => WidgetRegistry.create(w.chart_type, {
@@ -74,13 +74,13 @@ document.addEventListener('alpine:init', () => {
     async _saveWidget(w) {
       const body = w.toPayload();
       if (w.id > 0) {
-        await fetch(`/api/widget/${w.id}/`, {
+        await fetch(apiUrl(`/api/widget/${w.id}/`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         });
       } else {
-        const r = await fetch(`/api/dashboard/${this.dashboardId}/widgets/`, {
+        const r = await fetch(apiUrl(`/api/dashboard/${this.dashboardId}/widgets/`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
@@ -99,7 +99,7 @@ document.addEventListener('alpine:init', () => {
 
     async removeWidget(id) {
       if (id > 0) {
-        try { await fetch(`/api/widget/${id}/`, { method: 'DELETE' }); } catch (e) {}
+        try { await fetch(apiUrl(`/api/widget/${id}/`), { method: 'DELETE' }); } catch (e) {}
       }
       this.widgets = this.widgets.filter(w => w.id !== id);
     },
@@ -149,7 +149,7 @@ document.addEventListener('alpine:init', () => {
       this.drawerGenerating = true;
       this.drawerGenerateError = '';
       try {
-        const r = await fetch(`/api/dashboard/${this.dashboardId}/generate-widget-code/`, {
+        const r = await fetch(apiUrl(`/api/dashboard/${this.dashboardId}/generate-widget-code/`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -220,7 +220,7 @@ document.addEventListener('alpine:init', () => {
       this.utilGenerating = true;
       this.utilGenerateError = '';
       try {
-        const r = await fetch(`/api/dashboard/${this.dashboardId}/utils/generate/`, {
+        const r = await fetch(apiUrl(`/api/dashboard/${this.dashboardId}/utils/generate/`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -253,12 +253,12 @@ document.addEventListener('alpine:init', () => {
       };
       try {
         const r = draft.id
-          ? await fetch(`/api/util-function/${draft.id}/`, {
+          ? await fetch(apiUrl(`/api/util-function/${draft.id}/`), {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(body),
             })
-          : await fetch(`/api/dashboard/${this.dashboardId}/utils/`, {
+          : await fetch(apiUrl(`/api/dashboard/${this.dashboardId}/utils/`), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(body),
@@ -276,7 +276,7 @@ document.addEventListener('alpine:init', () => {
     async deleteUtil(u) {
       if (!confirm(`¿Eliminar la función "${u.name}"? Los widgets que la usen fallarán.`)) return;
       try {
-        await fetch(`/api/util-function/${u.id}/`, { method: 'DELETE' });
+        await fetch(apiUrl(`/api/util-function/${u.id}/`), { method: 'DELETE' });
       } catch (e) {}
       await this.loadUtils();
     },

@@ -4,7 +4,7 @@ document.addEventListener('alpine:init', () => {
 
 document.addEventListener('DOMContentLoaded', async () => {
   const canvasEl = document.getElementById('dashboard-canvas');
-  const r = await fetch(`/api/dashboard/${window.DASHBOARD_ID}/widgets/`);
+  const r = await fetch(apiUrl(`/api/dashboard/${window.DASHBOARD_ID}/widgets/`));
   const data = await r.json();
   data.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 

@@ -111,7 +111,7 @@
       if (!this.filterField) return;
       const dashboardId = Alpine.store('dashboard').dashboardId;
       try {
-        await fetch(`/api/dashboard/${dashboardId}/filters/`, {
+        await fetch(apiUrl(`/api/dashboard/${dashboardId}/filters/`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ field: this.filterField, value }),

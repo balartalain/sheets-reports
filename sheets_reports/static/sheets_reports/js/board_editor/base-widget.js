@@ -368,7 +368,7 @@ observeForLazyLoad
       this.setLoading(true);
       try {
         const { r, data } = await scheduleFetch(async () => {
-          const res = await fetch(`/api/widget/${this.id}/data/`);
+          const res = await fetch(apiUrl(`/api/widget/${this.id}/data/`));
           const json = await res.json().catch(() => null);
           return { r: res, data: json };
         });

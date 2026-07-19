@@ -124,16 +124,14 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
-PRODUCTION = not DEBUG
-
-if PRODUCTION:
-    # Quitamos el FORCE_SCRIPT_NAME para que no altere ni alterque con las rutas de archivos físicos
-    FORCE_SCRIPT_NAME = None
-    # Definimos la ruta absoluta e inmutable que Apache va a buscar en el Alias
-    STATIC_URL = '/sheets-reports/static/'
-else:
-    FORCE_SCRIPT_NAME = None
-    STATIC_URL = '/static/'
+# Prefijo bajo el cual corre la app en producción (ej. detrás de un Apache
+# Alias /sheets-reports). Vacío en desarrollo. Django lo antepone automáticamente
+# a las URLs generadas con {% url %} / reverse() y a STATIC_URL; para que el JS
+# del frontend (fetch a /api/...) también lo respete, se expone como
+# window.SCRIPT_NAME en base.html.
+REPORT_PATH = config('REPORT_PATH', default='')
+FORCE_SCRIPT_NAME = REPORT_PATH or None
+STATIC_URL = f'{REPORT_PATH}/static/'
 
 # Carpeta donde `collectstatic` reúne todos los estáticos para producción.
 STATIC_ROOT = BASE_DIR / 'staticfiles'
@@ -152,4 +150,3 @@ GEMINI_API_KEY = config("GEMINI_API_KEY", default="")
 # Configuración para GUNICON - APACHE
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-#FORCE_SCRIPT_NAME = config('REPORT_PATH', default=None)
