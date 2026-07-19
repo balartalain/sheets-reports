@@ -127,10 +127,13 @@ USE_TZ = True
 PRODUCTION = not DEBUG
 
 if PRODUCTION:
-    FORCE_SCRIPT_NAME = '/sheets-reports'
+    # Quitamos el FORCE_SCRIPT_NAME para que no altere ni alterque con las rutas de archivos físicos
+    FORCE_SCRIPT_NAME = None
+    # Definimos la ruta absoluta e inmutable que Apache va a buscar en el Alias
+    STATIC_URL = '/sheets-reports/static/'
 else:
     FORCE_SCRIPT_NAME = None
-STATIC_URL = '/static/'
+    STATIC_URL = '/static/'
 
 # Carpeta donde `collectstatic` reúne todos los estáticos para producción.
 STATIC_ROOT = BASE_DIR / 'staticfiles'
