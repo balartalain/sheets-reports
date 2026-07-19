@@ -87,10 +87,10 @@
       <button x-on:click="$store.dashboard.closeDrawer()" class="text-ink/40 hover:text-ink transition cursor-pointer text-sm">✕</button>
     </div>
 
-    <div class="space-y-4">
+    <div class="grid grid-cols-2 gap-x-3 gap-y-4">
       <template x-for="field in $store.dashboard.drawerFields" :key="field.key">
         <template x-if="field.key !== 'code'">
-          <div>
+          <div x-bind:class="(field.key === 'title' || field.type === 'textarea' || field.key === 'functionPath') ? 'col-span-2' : 'col-span-1'">
             <template x-if="field.type !== 'textarea'">
               <div class="flex items-center justify-between mb-1">
                 <label class="block text-xs font-semibold text-ink/70" x-text="field.label"></label>
