@@ -136,3 +136,8 @@ GOOGLE_SHEETS_CREDENTIALS_PATH = config("GOOGLE_SHEETS_CREDENTIALS_PATH", defaul
 
 # Gemini (generación de código de widgets vía IA)
 GEMINI_API_KEY = config("GEMINI_API_KEY", default="")
+
+# Configuración para GUNICON - APACHE
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+FORCE_SCRIPT_NAME = config('REPORT_PATH', default=None)
