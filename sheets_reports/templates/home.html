@@ -192,7 +192,7 @@
       },
 
       init() {
-        fetch('/api/dashboards/')
+        fetch(apiUrl('/api/dashboards/'))
           .then(r => r.json())
           .then(data => { this.dashboards = data; })
           .catch(() => {});
@@ -204,7 +204,7 @@
 
       deleteDashboard(id) {
         if (!confirm('¿Eliminar este tablero?')) return;
-        fetch(`/api/dashboards/${id}/`, { method: 'DELETE' })
+        fetch(apiUrl(`/api/dashboards/${id}/`), { method: 'DELETE' })
           .then(() => {
             this.dashboards = this.dashboards.filter(d => d.id !== id);
             this.openMenuId = null;
@@ -219,7 +219,7 @@
 
       createDashboard() {
         if (!this.newDashboardName.trim()) return;
-        fetch('/api/dashboards/', {
+        fetch(apiUrl('/api/dashboards/'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title: this.newDashboardName, source_url: this.newDashboardUrl }),
@@ -242,7 +242,7 @@
       saveEdit() {
         const d = this.editingDashboard;
         if (!d || !d.title.trim()) return;
-        fetch(`/api/dashboards/${d.id}/`, {
+        fetch(apiUrl(`/api/dashboards/${d.id}/`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title: d.title, source_url: d.source_url }),
