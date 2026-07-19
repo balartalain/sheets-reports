@@ -52,7 +52,6 @@ document.addEventListener('alpine:init', () => {
           id: w.id,
           title: w.title,
           functionPath: w.function_path || '',
-          prompt: w.prompt || '',
           code: w.code || '',
           order: w.order ?? 0,
           ...(w.properties || {}),

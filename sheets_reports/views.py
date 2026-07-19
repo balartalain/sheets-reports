@@ -62,8 +62,10 @@ def dashboard_widgets(request, dashboard_id):
         return JsonResponse({"error": "Dashboard no encontrado"}, status=404)
 
     if request.method == "GET":
+        # No se incluye "prompt": es de un solo uso (se limpia tras generar, ver
+        # generateWidgetCode en dashboard-store.js) y el drawer nunca lo muestra al abrir.
         widgets = dashboard.widgets.all().values(
-            "id", "title", "chart_type", "function_path", "code", "prompt", "properties", "order"
+            "id", "title", "chart_type", "function_path", "code", "properties", "order"
         )
         return JsonResponse(list(widgets), safe=False)
 
