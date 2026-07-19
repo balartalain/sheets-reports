@@ -128,14 +128,9 @@ PRODUCTION = not DEBUG
 
 if PRODUCTION:
     FORCE_SCRIPT_NAME = '/sheets-reports'
-    # Al dejarlo relativo con la barra al final, Django en producción
-    # le concatenará automáticamente el FORCE_SCRIPT_NAME,
-    # generando en los HTML: /reports/static/
-    STATIC_URL = 'sheets-reports/static/'
 else:
     FORCE_SCRIPT_NAME = None
-    # En tu máquina local funcionará de forma normal en la raíz: /static/
-    STATIC_URL = '/static/'
+STATIC_URL = '/static/'
 
 # Carpeta donde `collectstatic` reúne todos los estáticos para producción.
 STATIC_ROOT = BASE_DIR / 'staticfiles'
