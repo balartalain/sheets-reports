@@ -1,9 +1,8 @@
 """
 Helpers de formateo/agregación de DataFrames para widgets tipo 'table' (Tabulator).
-Reciben el DataFrame ya cargado y filtrado (cada función de widget en
-server_functions/<slug>/functions.py sigue siendo responsable de llamar
-`get_cached_df` y `apply_active_filters` antes de invocar estos helpers) y
-retornan un dict con el formato { "columns": [...], "rows": [...] } — quien
+Reciben el DataFrame ya cargado y filtrado (cada widget.code sigue siendo
+responsable de llamar `get_cached_df` y `apply_active_filters` antes de invocar
+estos helpers) y retornan un dict con el formato { "columns": [...], "rows": [...] } — quien
 llama es responsable de envolverlo en JsonResponse.
 """
 from django.utils.text import slugify

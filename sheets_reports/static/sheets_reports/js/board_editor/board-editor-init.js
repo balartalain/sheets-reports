@@ -24,7 +24,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   store.widgets.forEach(w => w.observeForLazyLoad());
 
-  store.refreshAvailableFunctions();
   store.loadUtils();
 
   requestAnimationFrame(() => {

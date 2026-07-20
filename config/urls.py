@@ -30,7 +30,6 @@ urlpatterns = [
     path('api/dashboard/<int:dashboard_id>/widgets/', views.dashboard_widgets, name='dashboard_widgets'),
     path('api/widget/<int:widget_id>/', views.widget_detail, name='widget_detail'),
     path('api/widget/<int:widget_id>/data/', views.widget_data, name='widget_data'),
-    path('api/widget-functions/<slug:board_slug>/', views.widget_functions, name='widget_functions'),
     path('api/dashboard/<int:board_id>/filters/', views.dashboard_filters, name='dashboard_filters'),
     path('api/dashboard/<int:dashboard_id>/generate-widget-code/', views.generate_widget_code, name='generate_widget_code'),
     path('api/dashboard/<int:dashboard_id>/utils/', views.dashboard_util_functions, name='dashboard_util_functions'),

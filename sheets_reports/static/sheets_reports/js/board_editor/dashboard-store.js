@@ -4,7 +4,6 @@ document.addEventListener('alpine:init', () => {
     editingId: null,
     editingType: null,
     dashboardId: window.DASHBOARD_ID,
-    availableFunctions: [],
     drawerDraft: {},
     drawerGenerating: false,
     drawerGenerateError: '',
@@ -17,23 +16,12 @@ document.addEventListener('alpine:init', () => {
     utilGenerateError: '',
     _nextId: -1,
 
-    get flatFunctions() {
-      return this.availableFunctions.map(name => ({ path: name, label: name }));
-    },
-
     get customUtils() {
       return this.availableUtils.filter(u => u.origin === 'custom');
     },
 
     get systemUtils() {
       return this.availableUtils.filter(u => u.origin === 'system');
-    },
-
-    async refreshAvailableFunctions() {
-      try {
-        const r = await fetch(apiUrl(`/api/widget-functions/${window.DASHBOARD_SLUG}/`));
-        this.availableFunctions = await r.json();
-      } catch (e) {}
     },
 
     async loadUtils() {
@@ -51,7 +39,6 @@ document.addEventListener('alpine:init', () => {
         this.widgets = data.map(w => WidgetRegistry.create(w.chart_type, {
           id: w.id,
           title: w.title,
-          functionPath: w.function_path || '',
           code: w.code || '',
           order: w.order ?? 0,
           ...(w.properties || {}),
@@ -120,8 +107,8 @@ document.addEventListener('alpine:init', () => {
     },
 
     get drawerFields() {
-      // No debe colapsar a []: eso destruiría/recrearía el <select> de
-      // functionPath (y sus <option>) en cada apertura del drawer.
+      // No debe colapsar a []: eso destruiría/recrearía los <select> del drawer
+      // (y sus <option>) en cada apertura.
       const WidgetClass = this.editingType ? WidgetRegistry.get(this.editingType) : BaseWidget;
       return WidgetClass.drawerFields;
     },

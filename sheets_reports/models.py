@@ -1,13 +1,6 @@
-import logging
-from pathlib import Path
-
 from django.db import models
 from django.conf import settings
 from django.utils.text import slugify
-
-logger = logging.getLogger(__name__)
-
-SERVER_FUNCTIONS_DIR = Path(__file__).resolve().parent / "server_functions"
 
 
 class Dashboard(models.Model):
@@ -26,13 +19,6 @@ class Dashboard(models.Model):
         blank=True,
         null=True,
         help_text="Identificador único usado en la URL del tablero, generado a partir del título. Se actualiza cada vez que cambia el título.",
-    )
-    functions_slug = models.SlugField(
-        max_length=255,
-        unique=True,
-        blank=True,
-        null=True,
-        help_text="Identificador interno y permanente usado para ubicar server_functions/<functions_slug>/. Se genera una sola vez al crear el tablero y nunca cambia, aunque se edite el título.",
     )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -67,36 +53,10 @@ class Dashboard(models.Model):
         return slug
 
     def save(self, *args, **kwargs):
-        if not self.functions_slug:
-            self.functions_slug = self._generate_unique_slug("functions_slug")
-            self._scaffold_server_functions_folder()
         if not self.slug or self.title != self._original_title:
             self.slug = self._generate_unique_slug("slug")
         super().save(*args, **kwargs)
         self._original_title = self.title
-
-    def _scaffold_server_functions_folder(self):
-        """Crea server_functions/<functions_slug>/functions.py una sola vez, al crear el tablero."""
-        functions_file = SERVER_FUNCTIONS_DIR / self.functions_slug / "functions.py"
-        if functions_file.exists():
-            return
-        try:
-            functions_file.parent.mkdir(parents=True, exist_ok=True)
-            functions_file.write_text(
-                f'"""\n'
-                f'Vistas de datos para el tablero "{self.title}" (functions_slug: {self.functions_slug}).\n'
-                f'Cada función recibe (request, widget) y retorna un JsonResponse. Cada una es\n'
-                f'responsable de cargar su(s) propio(s) DataFrame con\n'
-                f'`get_cached_df(widget.dashboard, sheet_name)` (sheet_name=None usa la primera\n'
-                f'hoja), lo que permite cruzar datos de varias pestañas del mismo spreadsheet\n'
-                f'cuando haga falta.\n'
-                f'"""\n'
-            )
-        except OSError:
-            logger.warning(
-                "No se pudo crear server_functions/%s/functions.py automáticamente",
-                self.functions_slug, exc_info=True,
-            )
 
 
 class WidgetInstance(models.Model):
@@ -126,15 +86,10 @@ class WidgetInstance(models.Model):
         choices=CHART_TYPES,
         help_text="Tipo de gráfico o componente visual.",
     )
-    function_path = models.CharField(
-        max_length=255,
-        default="",
-        help_text="Nombre de la función del servidor definida en server_functions/<slug del tablero>/functions.py (ej. 'total_ventas'). Se usa solo si `code` está vacío.",
-    )
     code = models.TextField(
         blank=True,
         default="",
-        help_text="Código Python ejecutado por el widget (debe definir `def run(request, widget):` que retorna un JsonResponse). Si está vacío, se usa function_path.",
+        help_text="Código Python ejecutado por el widget (debe definir `def run(request, widget):` que retorna un JsonResponse).",
     )
     prompt = models.TextField(
         blank=True,

@@ -1,5 +1,4 @@
 import builtins
-import importlib
 import logging
 
 from django.core.serializers.json import DjangoJSONEncoder
@@ -54,38 +53,6 @@ def _widget_json_response(data=None, **kwargs):
     numpy/pandas, para que el código generado no tenga que castear manualmente cada valor."""
     kwargs.setdefault("encoder", _NumpyPandasJSONEncoder)
     return JsonResponse(data, **kwargs)
-
-
-def _import_function(func_name: str, board_slug: str):
-    """
-    Importa una función por su nombre desde server_functions/<board_slug>/functions.py.
-    Retorna (module, function_name, error_response).
-    """
-    if not func_name:
-        return None, None, JsonResponse(
-            {"error": "El widget no tiene una función asignada."},
-            status=400,
-        )
-
-    module_path = f"sheets_reports.server_functions.{board_slug}.functions"
-
-    try:
-        module = importlib.import_module(module_path)
-    except ModuleNotFoundError:
-        logger.exception("Módulo %s no encontrado", module_path)
-        return None, None, JsonResponse(
-            {"error": f"Módulo '{module_path}' no encontrado"},
-            status=500,
-        )
-
-    func = getattr(module, func_name, None)
-    if func is None:
-        return None, None, JsonResponse(
-            {"error": f"Función '{func_name}' no encontrada en {module_path}"},
-            status=500,
-        )
-
-    return module, func_name, None
 
 
 @util(
@@ -184,15 +151,14 @@ def execute_widget_code(code: str, request, widget) -> JsonResponse:
 
 def dispatch_widget(request, widget_id: int) -> JsonResponse:
     """
-    Obtiene el widget, importa el módulo desde widget.function_path,
-    y ejecuta la función correspondiente.
+    Obtiene el widget y ejecuta su código guardado en `widget.code`.
 
-    Convención: cada función recibe (request, widget) y es responsable de cargar
+    Convención: el código recibe (request, widget) y es responsable de cargar
     su(s) propio(s) DataFrame llamando a `get_cached_df(widget.dashboard, sheet_name)`
     (sheet_name=None usa la primera hoja). Así una misma función puede leer más de
     una pestaña del spreadsheet del tablero y cruzarlas entre sí.
 
-    Convención para filtros: cada función puede aplicar los filtros activos
+    Convención para filtros: el código puede aplicar los filtros activos
     de su tablero al DataFrame con `apply_active_filters(df, request, widget)`
     (o leerlos directamente con `get_active_filters(request, widget)`).
     """
@@ -201,17 +167,7 @@ def dispatch_widget(request, widget_id: int) -> JsonResponse:
     except WidgetInstance.DoesNotExist:
         return JsonResponse({"error": "Widget no encontrado"}, status=404)
 
-    if widget.code:
-        return execute_widget_code(widget.code, request, widget)
+    if not widget.code:
+        return JsonResponse({"error": "El widget no tiene código asignado."}, status=400)
 
-    module, func_name, error = _import_function(widget.function_path, widget.dashboard.functions_slug)
-    if error:
-        return error
-
-    func = getattr(module, func_name)
-
-    try:
-        return func(request, widget)
-    except Exception as e:
-        logger.exception("Error al ejecutar %s", widget.function_path)
-        return JsonResponse({"error": str(e)}, status=500)
+    return execute_widget_code(widget.code, request, widget)

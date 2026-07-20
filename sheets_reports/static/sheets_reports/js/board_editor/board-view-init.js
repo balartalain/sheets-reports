@@ -11,7 +11,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const widgets = data.map(w => WidgetRegistry.create(w.chart_type, {
     id: w.id,
     title: w.title,
-    functionPath: w.function_path || '',
     code: w.code || '',
     order: w.order ?? 0,
     ...(w.properties || {}),

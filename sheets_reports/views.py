@@ -1,5 +1,3 @@
-import importlib
-import inspect
 import json
 
 from django.db import IntegrityError
@@ -65,7 +63,7 @@ def dashboard_widgets(request, dashboard_id):
         # No se incluye "prompt": es de un solo uso (se limpia tras generar, ver
         # generateWidgetCode en dashboard-store.js) y el drawer nunca lo muestra al abrir.
         widgets = dashboard.widgets.all().values(
-            "id", "title", "chart_type", "function_path", "code", "properties", "order"
+            "id", "title", "chart_type", "code", "properties", "order"
         )
         return JsonResponse(list(widgets), safe=False)
 
@@ -75,7 +73,6 @@ def dashboard_widgets(request, dashboard_id):
             dashboard=dashboard,
             title=data.get("title", ""),
             chart_type=data.get("chart_type", "bar"),
-            function_path=data.get("function_path", ""),
             code=data.get("code", ""),
             prompt=data.get("prompt", ""),
             properties=data.get("properties", {}),
@@ -85,7 +82,6 @@ def dashboard_widgets(request, dashboard_id):
             "id": widget.id,
             "title": widget.title,
             "chart_type": widget.chart_type,
-            "function_path": widget.function_path,
             "code": widget.code,
             "prompt": widget.prompt,
             "properties": widget.properties,
@@ -110,7 +106,7 @@ def widget_detail(request, widget_id):
 
     try:
         data = _get_request_data(request)
-        for field in ("title", "chart_type", "function_path", "code", "prompt", "properties", "order"):
+        for field in ("title", "chart_type", "code", "prompt", "properties", "order"):
             if field in data:
                 setattr(widget, field, data[field])
         widget.save()
@@ -118,7 +114,6 @@ def widget_detail(request, widget_id):
             "id": widget.id,
             "title": widget.title,
             "chart_type": widget.chart_type,
-            "function_path": widget.function_path,
             "code": widget.code,
             "prompt": widget.prompt,
             "properties": widget.properties,
@@ -276,25 +271,3 @@ def generate_custom_util(request, dashboard_id):
         return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse(util_data)
-
-
-def widget_functions(request, board_slug):
-    """
-    Retorna los nombres de las funciones disponibles del tablero `board_slug`,
-    leídas desde server_functions/<slug>/functions.py. Solo incluye funciones
-    definidas por el usuario (no las importadas ni las privadas que empiezan con _).
-    """
-    dashboard = get_object_or_404(Dashboard, slug=board_slug)
-    module_name = f"sheets_reports.server_functions.{dashboard.functions_slug}.functions"
-
-    try:
-        module = importlib.import_module(module_name)
-    except ModuleNotFoundError:
-        return JsonResponse([], safe=False)
-
-    functions = [
-        name for name, obj in inspect.getmembers(module, inspect.isfunction)
-        if not name.startswith("_") and getattr(obj, "__module__", None) == module_name
-    ]
-
-    return JsonResponse(functions, safe=False)

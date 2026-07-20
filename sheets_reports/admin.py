@@ -12,7 +12,7 @@ class DashboardAdmin(admin.ModelAdmin):
 
 @admin.register(WidgetInstance)
 class WidgetInstanceAdmin(admin.ModelAdmin):
-    list_display = ["title", "dashboard", "chart_type", "function_path", "created_at"]
+    list_display = ["title", "dashboard", "chart_type", "created_at"]
     list_filter = ["chart_type", "created_at"]
-    search_fields = ["title", "function_path"]
-    fields = ["dashboard", "title", "chart_type", "function_path", "properties"]
+    search_fields = ["title"]
+    fields = ["dashboard", "title", "chart_type", "properties"]
