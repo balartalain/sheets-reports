@@ -66,13 +66,19 @@
       return el;
     }
 
-    renderError(message) {
+    renderError(message, { retryable = false } = {}) {
       const container = this.getContentContainer();
       if (!container) return;
       const text = message || 'Error al cargar los datos';
       container.innerHTML = `
-        <span class="block w-full text-xs text-red-600 truncate" title="${BaseWidget.escapeHTML(text)}">${BaseWidget.escapeHTML(text)}</span>
+        <div class="flex items-center gap-2 w-full">
+          <span class="flex-1 min-w-0 text-xs text-red-600 truncate" title="${BaseWidget.escapeHTML(text)}">${BaseWidget.escapeHTML(text)}</span>
+          ${retryable ? `<button type="button" class="retry-widget-btn shrink-0 text-xs font-medium text-moss-700 hover:text-moss-800 underline cursor-pointer">Reintentar</button>` : ''}
+        </div>
       `;
+      if (retryable) {
+        container.querySelector('.retry-widget-btn').addEventListener('click', () => this.fetchAndRender());
+      }
     }
 
     renderContent(container, data) {

@@ -1,5 +1,6 @@
 (function () {
   const MAX_CONCURRENT_FETCHES = 5;
+  const FETCH_TIMEOUT_MS = 15000;
   let activeFetches = 0;
   const fetchQueue = [];
 
@@ -319,7 +320,7 @@
       this._chart.render();
     }
 
-    renderError(message) {
+    renderError(message, { retryable = false } = {}) {
       const container = this.getContentContainer();
       if (!container) return;
       if (this._chart) {
@@ -327,10 +328,14 @@
         this._chart = null;
       }
       container.innerHTML = `
-        <div class="h-full w-full flex items-center justify-center text-center px-3">
+        <div class="h-full w-full flex flex-col items-center justify-center text-center gap-2 px-3">
           <span class="text-xs text-red-600">${BaseWidget.escapeHTML(message || 'Error al cargar los datos')}</span>
+          ${retryable ? `<button type="button" class="retry-widget-btn text-xs font-medium text-moss-700 border border-moss-300 hover:bg-moss-tint rounded-lg px-3 py-1 transition cursor-pointer">Reintentar</button>` : ''}
         </div>
       `;
+      if (retryable) {
+        container.querySelector('.retry-widget-btn').addEventListener('click', () => this.fetchAndRender());
+      }
     }
 observeForLazyLoad
     () {
@@ -357,9 +362,15 @@ observeForLazyLoad
       this.setLoading(true);
       try {
         const { r, data } = await scheduleFetch(async () => {
-          const res = await fetch(apiUrl(`/api/widget/${this.id}/data/`));
-          const json = await res.json().catch(() => null);
-          return { r: res, data: json };
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+          try {
+            const res = await fetch(apiUrl(`/api/widget/${this.id}/data/`), { signal: controller.signal });
+            const json = await res.json().catch(() => null);
+            return { r: res, data: json };
+          } finally {
+            clearTimeout(timeoutId);
+          }
         });
         if (!r.ok) {
           this.renderError(data && data.error ? data.error : `Error ${r.status} al cargar los datos`);
@@ -368,7 +379,9 @@ observeForLazyLoad
         const container = this.getContentContainer();
         if (container) this.renderContent(container, data);
       } catch (e) {
-        this.renderError('No se pudo conectar con el servidor');
+        // Cubre tanto fallas de red (sin conexión, servidor caído) como el abort por
+        // FETCH_TIMEOUT_MS de arriba (fetch nunca falla solo, sigue esperando indefinidamente).
+        this.renderError('No se pudo conectar con el servidor', { retryable: true });
       } finally {
         this.setLoading(false);
       }
