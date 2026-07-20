@@ -48,8 +48,7 @@ def ensure_loaded():
     tope del archivo) para evitar un ciclo: esos módulos importan `util` desde este mismo
     archivo."""
     import sheets_reports.utils.cache  # noqa: F401 (registra get_cached_df)
-    import sheets_reports.utils.chart_helpers  # noqa: F401 (registra distribucion_por_respuesta)
-    import sheets_reports.utils.table_helpers  # noqa: F401 (registra tabla_conteo_por_respuesta)
+    import sheets_reports.utils.chart_helpers  # noqa: F401 (registra _truncar)
     import sheets_reports.utils.widget_dispatcher  # noqa: F401 (registra apply_active_filters, get_active_filters)
 
 
