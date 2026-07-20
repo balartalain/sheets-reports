@@ -10,6 +10,10 @@
       descClass: 'text-emerald-700/80',
     };
     static defaults = { title: 'Tarjeta KPI', width: 'md:col-span-4', height: 300 };
+    static help = 'Resalta un único número clave (ej. total recaudado, matrícula total) como ' +
+      'cifra grande y protagonista, con etiqueta descriptiva y, opcionalmente, uno o más valores ' +
+      'secundarios de contexto debajo (ej. desglose por método de pago). No compara categorías ' +
+      'ni muestra tendencias: para eso usa un gráfico de barras o líneas.';
 
     static mockData() {
       return {

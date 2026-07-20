@@ -10,6 +10,9 @@
       descClass: 'text-amber-700/80',
     };
     static defaults = { title: 'Tabla', width: 'md:col-span-6', height: 300 };
+    static help = 'Muestra datos en filas y columnas, como una hoja de cálculo (ej. listado de ' +
+      'participantes con sus notas, detalle de transacciones). Útil cuando el detalle fila por ' +
+      'fila importa más que una comparación visual, y permite descargar los datos como CSV.';
 
     static FIELD_PAGE_SIZE = { key: 'pageSize', label: 'Filas por página', type: 'number', min: 5, step: 5 };
     static FIELD_SHOW_PAGINATION = { key: 'showPagination', label: 'Mostrar paginación', type: 'checkbox' };

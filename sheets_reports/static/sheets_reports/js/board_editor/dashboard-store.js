@@ -8,6 +8,7 @@ document.addEventListener('alpine:init', () => {
     drawerGenerating: false,
     drawerGenerateError: '',
     drawerUtilsOpen: false,
+    drawerHelpOpen: false,
     utilsOpen: false,
     availableUtils: [],
     systemUtilsOpen: false,
@@ -113,6 +114,11 @@ document.addEventListener('alpine:init', () => {
       return WidgetClass.drawerFields;
     },
 
+    get drawerHelp() {
+      const WidgetClass = this.editingType ? WidgetRegistry.get(this.editingType) : BaseWidget;
+      return WidgetClass.help;
+    },
+
     openDrawer(id) {
       const w = this.widgets.find(w => w.id === id);
       if (!w) return;
@@ -129,6 +135,7 @@ document.addEventListener('alpine:init', () => {
       this.drawerDraft = {};
       this.drawerGenerateError = '';
       this.drawerUtilsOpen = false;
+      this.drawerHelpOpen = false;
     },
 
     async generateWidgetCode() {

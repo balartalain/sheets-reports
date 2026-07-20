@@ -10,6 +10,9 @@
       descClass: 'text-rose-700/80',
     };
     static defaults = { title: 'Gráfico de Dona', width: 'md:col-span-4', height: 300 };
+    static help = 'Muestra cómo se reparte un total entre categorías, como porciones de un ' +
+      'círculo (ej. participantes por sede, presupuesto por rubro). Útil para ver proporciones ' +
+      'de un conjunto pequeño de categorías; con muchas categorías es mejor usar una tabla o barras.';
 
     static mockData() {
       return {

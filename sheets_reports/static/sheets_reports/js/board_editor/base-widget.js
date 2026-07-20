@@ -44,6 +44,7 @@
     };
     static defaults = { title: 'Widget', width: 'md:col-span-6', height: 300 };
     static minHeight = 150;
+    static help = '';
 
     static FIELD_TITLE = { key: 'title', label: 'Título', type: 'text' };
 

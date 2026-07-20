@@ -11,6 +11,9 @@
       descClass: 'text-amber-700/80',
     };
     static defaults = { title: 'Filtro', width: 'md:col-span-4' };
+    static help = 'No visualiza datos: es un selector desplegable (ej. año, sede, carrera) que, ' +
+      'al elegir un valor, filtra en vivo todos los demás widgets del tablero cuyos datos ' +
+      'contengan una columna con el mismo nombre que "Campo a filtrar".';
 
     static FIELD_FILTER_FIELD = {
       key: 'filterField',
