@@ -20,12 +20,45 @@ def get_credentials():
     return Credentials.from_service_account_file(path, scopes=SCOPES)
 
 
-def list_worksheet_titles(source_url: str) -> list[str]:
-    """Retorna los títulos de todas las pestañas del spreadsheet."""
+def fetch_sheets_preview(source_url: str, n_rows: int = 3) -> dict[str, dict]:
+    """
+    Trae, en una sola llamada a la API (values_batch_get), la estructura de TODAS las pestañas
+    del spreadsheet: sus columnas (fila de encabezado) y las primeras `n_rows` filas de datos de
+    cada una. Se usa para darle a Gemini visión completa del spreadsheet al generar código (ver
+    gemini_client._build_sheets_context), sin que el usuario tenga que nombrar la pestaña en su
+    descripción, y sin el costo de traer cada pestaña completa como hace fetch_sheet_as_dataframe.
+
+    Retorna { "<título de pestaña>": {"columns": [...], "sample_rows": [{col: valor, ...}, ...]} }.
+    """
     creds = get_credentials()
     client = gspread.authorize(creds)
     spreadsheet = client.open_by_url(source_url)
-    return [ws.title for ws in spreadsheet.worksheets()]
+
+    titles = [ws.title for ws in spreadsheet.worksheets()]
+    if not titles:
+        return {}
+
+    ranges = []
+    for title in titles:
+        escaped_title = title.replace("'", "''")
+        ranges.append(f"'{escaped_title}'!1:{n_rows + 1}")
+    response = spreadsheet.values_batch_get(ranges)
+
+    preview = {}
+    for title, value_range in zip(titles, response.get("valueRanges", [])):
+        rows = value_range.get("values", [])
+        if not rows:
+            preview[title] = {"columns": [], "sample_rows": []}
+            continue
+        columns = rows[0]
+        preview[title] = {
+            "columns": columns,
+            "sample_rows": [
+                {col: (row[i] if i < len(row) else "") for i, col in enumerate(columns)}
+                for row in rows[1:]
+            ],
+        }
+    return preview
 
 
 def fetch_sheet_as_dataframe(source_url: str, sheet_name: str | None = None) -> pd.DataFrame:

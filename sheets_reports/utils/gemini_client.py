@@ -4,7 +4,7 @@ import logging
 from django.conf import settings
 from google import genai
 
-from sheets_reports.utils.cache import get_cached_df, get_cached_sheet_titles
+from sheets_reports.utils.cache import get_cached_sheets_preview
 from sheets_reports.utils.registry import get_available_utils
 
 logger = logging.getLogger(__name__)
@@ -42,12 +42,12 @@ columna que este filtro debe controlar, ya configurado por el usuario. Úsalo as
 active_filters.get(widget.filter_field, None) para obtener el valor actualmente
 seleccionado. No inventes otros nombres como widget.field_name o widget.title para esto.)
 
-La muestra de columnas/filas que se te da abajo ya corresponde a la pestaña que el usuario
-mencionó en su descripción (si mencionó alguna); usa exactamente ese nombre de pestaña en
-get_cached_df(widget.dashboard, sheet_name='<nombre exacto>'). Si el usuario menciona una
-pestaña que no coincide con la de la muestra (typo, nombre parcial, etc.), usa igual el nombre
-que dio el usuario en get_cached_df(...) e infiere las columnas razonablemente a partir de su
-descripción, ya que no tienes la estructura real de esa pestaña.
+Abajo se te muestran las columnas y filas de ejemplo de TODAS las pestañas del spreadsheet de
+este tablero. Elegí la pestaña que mejor corresponda a lo que pide el usuario (si el prompt
+nombra una pestaña explícitamente, se te marca como tal: priorizala salvo que sea claramente
+incorrecta para lo que pide) y usá su nombre EXACTO en
+get_cached_df(widget.dashboard, sheet_name='<nombre exacto>'). Especificá siempre sheet_name
+explícitamente, incluso si es la primera pestaña — nunca lo omitas ni lo dejes en None.
 
 Tu respuesta debe ser SIEMPRE la función run(request, widget) completa y final, no un fragmento.
 Si se te muestra el código ya existente de este widget, conservá su lógica salvo lo que el
@@ -127,14 +127,9 @@ def _build_system_instruction(dashboard) -> str:
     return SYSTEM_INSTRUCTION_TEMPLATE.replace("__UTILS_REFERENCE__", build_utils_reference(dashboard))
 
 
-def _detect_sheet_name(prompt: str, dashboard) -> str | None:
-    """Busca, case-insensitive, si el prompt del usuario menciona el nombre de alguna pestaña
-    real del spreadsheet del dashboard. Retorna el nombre exacto de la pestaña o None."""
-    try:
-        titles = get_cached_sheet_titles(dashboard)
-    except Exception:
-        return None
-
+def _detect_sheet_name(prompt: str, titles: list[str]) -> str | None:
+    """Busca, case-insensitive, si el prompt del usuario menciona el nombre de alguna de las
+    pestañas dadas. Retorna el nombre exacto de la pestaña o None."""
     prompt_lower = prompt.lower()
     for title in titles:
         if title.lower() in prompt_lower:
@@ -142,20 +137,33 @@ def _detect_sheet_name(prompt: str, dashboard) -> str | None:
     return None
 
 
-def _build_sample_context(dashboard, prompt: str) -> str:
-    sheet_name = _detect_sheet_name(prompt, dashboard)
-    label = f"'{sheet_name}'" if sheet_name else "por defecto"
-
+def _build_sheets_context(dashboard, prompt: str) -> str:
+    """
+    Arma el bloque de estructura del spreadsheet que se le muestra a Gemini: columnas y unas
+    pocas filas de ejemplo de TODAS las pestañas (cacheado, ver get_cached_sheets_preview), para
+    que pueda elegir la pestaña correcta sin que el usuario tenga que nombrarla explícitamente
+    en su descripción. Si el prompt sí menciona el nombre exacto de una pestaña, se la marca
+    para que Gemini le dé prioridad en caso de ambigüedad.
+    """
     try:
-        df = get_cached_df(dashboard, sheet_name)
+        preview = get_cached_sheets_preview(dashboard)
     except Exception as e:
-        return f"(no se pudo leer la pestaña {label} del spreadsheet: {e})"
-    if df.empty:
-        return f"(la pestaña {label} del spreadsheet está vacía)"
+        return f"(no se pudo leer la estructura del spreadsheet: {e})"
+    if not preview:
+        return "(el spreadsheet no tiene pestañas)"
 
-    columns = list(df.columns)
-    sample_rows = df.head(3).to_dict(orient="records")
-    return f"Pestaña usada para la muestra: {label}\nColumnas: {columns}\nFilas de ejemplo: {sample_rows}"
+    hinted = _detect_sheet_name(prompt, list(preview.keys()))
+
+    lines = []
+    for title, info in preview.items():
+        marker = " (mencionada explícitamente por el usuario)" if title == hinted else ""
+        lines.append(f"Pestaña '{title}'{marker}")
+        if info["columns"]:
+            lines.append(f"  Columnas: {info['columns']}")
+            lines.append(f"  Filas de ejemplo: {info['sample_rows']}")
+        else:
+            lines.append("  (vacía)")
+    return "\n".join(lines)
 
 
 def _strip_markdown_fences(code: str) -> str:
@@ -198,7 +206,7 @@ def generate_widget_code(prompt: str, dashboard, chart_type: str = "", existing_
     sin perder el resto de la lógica. Retorna el código completo, listo para guardar en
     WidgetInstance.code.
     """
-    sample_context = _build_sample_context(dashboard, prompt)
+    sheets_context = _build_sheets_context(dashboard, prompt)
 
     chart_type_line = f"Tipo de widget (chart_type): {chart_type}\n\n" if chart_type else ""
     existing_code_block = (
@@ -209,8 +217,8 @@ def generate_widget_code(prompt: str, dashboard, chart_type: str = "", existing_
     full_prompt = (
         f"{chart_type_line}"
         f"{existing_code_block}"
-        f"Estructura de muestra del spreadsheet de este tablero:\n"
-        f"{sample_context}\n\n"
+        f"Estructura de las pestañas del spreadsheet de este tablero:\n"
+        f"{sheets_context}\n\n"
         f"Descripción del usuario:\n{prompt}"
     )
 
@@ -226,7 +234,7 @@ def generate_custom_util(prompt: str, dashboard, existing_util: dict | None = No
     Retorna un dict con name/signature/category/description/source_code, listo para revisar
     y guardar en un DashboardUtilFunction.
     """
-    sample_context = _build_sample_context(dashboard, prompt)
+    sheets_context = _build_sheets_context(dashboard, prompt)
     utils_reference = build_utils_reference(dashboard)
 
     existing_block = ""
@@ -241,8 +249,8 @@ def generate_custom_util(prompt: str, dashboard, existing_util: dict | None = No
         f"Utilidades ya disponibles en este tablero (no las redefinas, ya las podés llamar):\n"
         f"{utils_reference}\n\n"
         f"{existing_block}"
-        f"Estructura de muestra del spreadsheet de este tablero:\n"
-        f"{sample_context}\n\n"
+        f"Estructura de las pestañas del spreadsheet de este tablero:\n"
+        f"{sheets_context}\n\n"
         f"Descripción del usuario:\n{prompt}"
     )
 

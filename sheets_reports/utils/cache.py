@@ -3,7 +3,7 @@ import time
 import pandas as pd
 from django.core.cache import cache
 
-from .google_sheets import fetch_sheet_as_dataframe, list_worksheet_titles
+from .google_sheets import fetch_sheet_as_dataframe, fetch_sheets_preview
 from .registry import util
 
 CACHE_TIMEOUT = 300  # 5 minutos
@@ -62,9 +62,11 @@ def get_cached_df(dashboard, sheet_name: str | None = None) -> pd.DataFrame:
     )
 
 
-def get_cached_sheet_titles(dashboard) -> list[str]:
-    """Retorna los títulos de las pestañas del spreadsheet del dashboard, cacheados."""
-    cache_key = f"sheet_titles_{dashboard.id}"
+def get_cached_sheets_preview(dashboard, n_rows: int = 3) -> dict:
+    """Columnas + primeras `n_rows` filas de cada pestaña del spreadsheet del tablero, cacheado
+    (ver fetch_sheets_preview). A diferencia de get_cached_df, no trae cada pestaña completa:
+    solo lo necesario para que Gemini elija la pestaña correcta al generar código."""
+    cache_key = f"sheets_preview_{dashboard.id}_{n_rows}"
     return _fetch_with_lock(
-        cache_key, CACHE_TIMEOUT, lambda: list_worksheet_titles(dashboard.source_url)
+        cache_key, CACHE_TIMEOUT, lambda: fetch_sheets_preview(dashboard.source_url, n_rows)
     )
