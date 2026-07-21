@@ -20,15 +20,17 @@
 
   // Con muchos widgets en un tablero, pedir datos de todos apenas carga la página es lento
   // (N requests + N renders de golpe). En vez de eso, cada widget se monta con su mockup y
-  // solo pide sus datos reales cuando entra (o está por entrar) al viewport — ver
-  // observeForLazyLoad()/fetchAndRender() más abajo. rootMargin adelanta el fetch ~300px
-  // antes de que el widget sea visible, para que no se vea el mockup al hacer scroll.
+  // solo pide sus datos reales cuando entra al viewport — ver observeForLazyLoad()/
+  // fetchAndRender() más abajo. El widget queda observado toda su vida (no solo hasta la
+  // primera carga) para poder trackear _inViewport y volver a fetchear si un filtro lo
+  // marca como stale estando fuera de pantalla.
   const _lazyLoadObserver = ('IntersectionObserver' in window)
     ? new IntersectionObserver((entries) => {
         for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
           const widget = entry.target._widgetInstance;
-          if (widget && !widget._loaded) widget.fetchAndRender();
+          if (!widget) continue;
+          widget._inViewport = entry.isIntersecting;
+          if (entry.isIntersecting && !widget._loaded) widget.fetchAndRender();
         }
       }, { threshold: 0.1 })
     : null;
@@ -192,6 +194,8 @@
       this._dirty = raw._dirty ?? false;
       this._loading = false;
       this._loaded = false;
+      this._inViewport = false;
+      this._fetchToken = 0;
       this.el = null;
       this._chart = null;
     }
@@ -337,9 +341,9 @@
         container.querySelector('.retry-widget-btn').addEventListener('click', () => this.fetchAndRender());
       }
     }
-observeForLazyLoad
-    () {
+    observeForLazyLoad() {
       if (!_lazyLoadObserver || !this.el) {
+        this._inViewport = true;
         this.fetchAndRender();
         return;
       }
@@ -349,8 +353,8 @@ observeForLazyLoad
 
     async fetchAndRender() {
       if (this.id < 0) return;
+      const token = ++this._fetchToken;
       this._loaded = true;
-      if (this.el && _lazyLoadObserver) _lazyLoadObserver.unobserve(this.el);
       if (!this.code) {
         // Widget sin código (ej. un futuro tipo de contenido estático que no hace fetch):
         // apaga el loader que mountReadOnly() prendió, si no queda pegado.
@@ -362,6 +366,7 @@ observeForLazyLoad
       this.setLoading(true);
       try {
         const { r, data } = await scheduleFetch(async () => {
+          if (token !== this._fetchToken) return { r: null, data: null }; // superado mientras esperaba en cola
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
           try {
@@ -372,6 +377,7 @@ observeForLazyLoad
             clearTimeout(timeoutId);
           }
         });
+        if (token !== this._fetchToken || !r) return; // una llamada más nueva ya se hizo cargo
         if (!r.ok) {
           this.renderError(data && data.error ? data.error : `Error ${r.status} al cargar los datos`);
           return;
@@ -381,9 +387,10 @@ observeForLazyLoad
       } catch (e) {
         // Cubre tanto fallas de red (sin conexión, servidor caído) como el abort por
         // FETCH_TIMEOUT_MS de arriba (fetch nunca falla solo, sigue esperando indefinidamente).
+        if (token !== this._fetchToken) return;
         this.renderError('No se pudo conectar con el servidor', { retryable: true });
       } finally {
-        this.setLoading(false);
+        if (token === this._fetchToken) this.setLoading(false);
       }
     }
 
@@ -404,10 +411,21 @@ observeForLazyLoad
     }
 
     _attachFiltersListener() {
-      // Si el widget todavía no cargó datos reales (sigue con el mockup, fuera del
-      // viewport), no hace falta pedirlos ahora: se piden ya filtrados cuando
-      // observeForLazyLoad() dispare su fetch al entrar en pantalla.
-      this._onFiltersChanged = () => { if (this._loaded) this.fetchAndRender(); };
+      this._onFiltersChanged = () => {
+        // Si el widget todavía no cargó datos reales (sigue con el mockup, fuera del
+        // viewport), no hace falta invalidar nada: se piden ya filtrados cuando
+        // observeForLazyLoad() dispare su fetch al entrar en pantalla por primera vez.
+        if (!this._loaded) return;
+        this._loaded = false; // stale, sin importar si está visible ahora mismo
+        if (this._inViewport) {
+          this.fetchAndRender();
+        } else {
+          // Fuera de pantalla: no pedir datos todavía, solo tapar el contenido viejo para
+          // que no se muestre como si fuera actual. El propio observer lo va a refetchear
+          // (rama `!widget._loaded` de arriba) apenas vuelva a entrar en viewport.
+          this.setLoading(true);
+        }
+      };
       window.addEventListener('dashboard:filters-changed', this._onFiltersChanged);
     }
 

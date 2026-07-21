@@ -46,6 +46,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const type = evt.item.getAttribute('data-type');
       const widget = store.addWidget(type);
       const widgetEl = widget.mount();
+      widget.observeForLazyLoad();
       evt.item.replaceWith(widgetEl);
       requestAnimationFrame(() => {
         window.dispatchEvent(new Event('resize'));
