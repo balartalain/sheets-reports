@@ -105,7 +105,7 @@
     static get drawerFields() {
       return [
         this.FIELD_TITLE, this.FIELD_PROMPT, this.FIELD_CODE,
-        this.FIELD_WIDTH, this.FIELD_HEIGHT, this.FIELD_START_COL,
+        this.FIELD_WIDTH, this.FIELD_START_COL,
       ];
     }
 
@@ -444,9 +444,13 @@
 
       const el = this.el;
       const minHeight = this.constructor.minHeight;
+      const stepHeight = 20;
       const startY = e.clientY;
       const startHeight = el.offsetHeight;
 
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
       const onMouseMove = (ev) => {
         const newHeight = Math.max(minHeight, startHeight + (ev.clientY - startY));
         el.style.height = newHeight + 'px';
@@ -454,10 +458,13 @@
       };
 
       const onMouseUp = () => {
-        this.height = el.offsetHeight;
+        el.classList.add('is-snapping');
+        this.height = clamp(Math.round(el.offsetHeight/stepHeight)*stepHeight, minHeight, 3000);//Max height 3000px
+        el.style.height = this.height + 'px';
         this._dirty = true;
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
+         setTimeout(() => el.classList.remove('is-snapping'), 160);
       };
 
       document.addEventListener('mousemove', onMouseMove);
