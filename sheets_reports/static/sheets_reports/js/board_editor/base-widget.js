@@ -142,6 +142,21 @@
       return (this.title || fallback).trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || fallback;
     }
 
+    // Los widgets de tipo ApexChart no usan el botón de descarga genérico: usan el menú
+    // de exportación propio del toolbar de ApexCharts (PNG/SVG/CSV del gráfico).
+    chartExportToolbar() {
+      const filename = this._filenameSlug('grafico');
+      return {
+        show: true,
+        tools: { download: true, selection: false, zoom: false, zoomin: false, zoomout: false, pan: false, reset: false },
+        export: {
+          csv: { filename },
+          svg: { filename },
+          png: { filename },
+        },
+      };
+    }
+
     downloadRowsAsCSV(headers, rows, filename) {
       const escapeCell = (v) => {
         const s = v === null || v === undefined ? '' : String(v);

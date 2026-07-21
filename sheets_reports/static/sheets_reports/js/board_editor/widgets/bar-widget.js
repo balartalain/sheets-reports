@@ -48,12 +48,6 @@
       return this.buildStandardCardElement();
     }
 
-    buildReadOnlyElement() {
-      const el = super.buildReadOnlyElement();
-      el.querySelector('.actions-slot').innerHTML = this.downloadButtonHTML('Descargar CSV');
-      return el;
-    }
-
     getProperties() {
       return { ...super.getProperties(),
         horizontal: this.horizontal,
@@ -79,7 +73,7 @@
       }
 
       const options = {
-        chart: { type: 'bar', stacked: this.stacked, height: '90%', width: this.chartWidth || '100%', fontFamily: 'inherit', toolbar: { show: false } },
+        chart: { type: 'bar', stacked: this.stacked, height: '90%', width: this.chartWidth || '100%', fontFamily: 'inherit', toolbar: this.chartExportToolbar() },
         colors: ['#2563eb', '#f5a623', '#00e1ffff', '#3965c4ff'],
         series,
         xaxis: { categories, labels: { style: { fontSize: '11px' }, maxHeight: 150 } },
@@ -137,15 +131,6 @@
         },
       };
       this.renderApexChart(container, options);
-
-      const downloadBtn = this.el && this.el.querySelector('.download-csv-btn');
-      if (downloadBtn) {
-        downloadBtn.onclick = () => {
-          const headers = ['Categoría', ...series.map(s => s.name)];
-          const rows = categories.map((cat, i) => [cat, ...series.map(s => s.data[i])]);
-          this.downloadRowsAsCSV(headers, rows, `${this._filenameSlug('grafico')}.csv`);
-        };
-      }
     }
   }
 
