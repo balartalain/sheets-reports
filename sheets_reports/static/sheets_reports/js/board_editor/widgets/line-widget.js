@@ -30,7 +30,20 @@
       const series = payload.series || [{ name: 'Datos', data: [] }];
       const categories = payload.categories || [];
       const options = {
-        chart: { type: 'line', height: '100%', width: '100%', fontFamily: 'inherit', toolbar: this.chartExportToolbar() },
+        chart: { type: 'line', height: '100%', width: '100%', fontFamily: 'inherit',
+          toolbar: {
+            show: true, // Muestra el toolbar
+            tools: {
+              download: true,  // Botón de descargar (SVG, PNG, CSV)
+              selection: true, // Herramienta de selección
+              zoom: true,      // Zoom por selección
+              zoomin: true,    // Acercar
+              zoomout: true,   // Alejar
+              pan: true,       // Desplazamiento (Pan)
+              reset: true      // Reiniciar zoom
+            }
+          }
+        },
         colors: ['#7c3aed'],
         stroke: { curve: 'smooth', width: 3 },
         series,

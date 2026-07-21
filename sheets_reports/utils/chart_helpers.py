@@ -12,8 +12,8 @@ from .registry import util
 @util(
     category="Cadena",
     description=(
-        "Trunca un texto al largo pasado por parámetro, agregando '...'"
-        " al final si se excede. Retorna el texto original si no supera el largo."
+        "Trunca un texto a la longitud indicada por el parámetro `largo`"
+        " (default 30), agregando '...' al final si se excede."
     ),
     example="data = _truncar('Este es un texto muy largo', 10)",
 )

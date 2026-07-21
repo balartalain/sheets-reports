@@ -76,7 +76,18 @@
         chart: { type: 'bar', stacked: this.stacked, height: '90%', width: this.chartWidth || '100%', fontFamily: 'inherit', toolbar: this.chartExportToolbar() },
         colors: ['#2563eb', '#f5a623', '#00e1ffff', '#3965c4ff'],
         series,
-        xaxis: { categories, labels: { style: { fontSize: '11px' }, maxHeight: 150 } },
+        xaxis: {
+          categories: categories.map((cat) => formatearEtiquetaApex(cat, 18)), // Llama a la función para formatear las etiquetas
+          labels: {
+            rotate: 0,        // Mantiene el texto horizontal (sin inclinar)
+            align: 'center',  // Centra las líneas de texto entre sí
+            style: {
+              fontSize: '12px',
+              cssClass: 'apexcharts-xaxis-label-centered'
+            }
+          },
+          maxHeight: 150
+        },
         plotOptions: { bar: { horizontal: this.horizontal, borderRadius: 4, borderRadiusApplication: 'end', columnWidth: '50%',
           dataLabels:{
             position: 'center'

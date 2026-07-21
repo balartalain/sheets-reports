@@ -30,7 +30,20 @@
       const series = (payload.series && payload.series[0] && payload.series[0].data) || [];
       const labels = payload.categories || [];
       const options = {
-        chart: { type: 'donut', height: '90%', width: '100%', fontFamily: 'inherit', toolbar: this.chartExportToolbar() },
+        chart: { type: 'donut', height: '90%', width: '100%', fontFamily: 'inherit',
+          toolbar: {
+            show: true, // Muestra el toolbar
+            tools: {
+              download: true,  // Botón de descargar (SVG, PNG, CSV)
+              selection: true, // Herramienta de selección
+              zoom: true,      // Zoom por selección
+              zoomin: true,    // Acercar
+              zoomout: true,   // Alejar
+              pan: true,       // Desplazamiento (Pan)
+              reset: true      // Reiniciar zoom
+            }
+          }
+        },
         colors: ['#2563eb', '#f5a623', '#1F8A5F', '#60a5fa', '#93c5fd', '#bfdbfe', '#dbeafe'],
         series,
         labels,
