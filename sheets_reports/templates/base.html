@@ -15,9 +15,6 @@
 <link rel="icon" type="image/png" sizes="32x32" href="{% static 'sheets_reports/img/favicon-32.png' %}">
 <link rel="icon" type="image/png" sizes="16x16" href="{% static 'sheets_reports/img/favicon-16.png' %}">
 <link rel="apple-touch-icon" sizes="180x180" href="{% static 'sheets_reports/img/apple-touch-icon-180.png' %}">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = {
@@ -37,11 +34,6 @@
             50: 'var(--color-clay-50)', 300: 'var(--color-clay-300)',
             500: 'var(--color-clay-500)', 600: 'var(--color-clay-600)',
           },
-        },
-        fontFamily: {
-          display: ['"Space Grotesk"', 'sans-serif'],
-          sans: ['Inter', 'sans-serif'],
-          mono: ['"JetBrains Mono"', 'monospace'],
         }
       }
     }
@@ -68,9 +60,6 @@
     --color-clay-500: #B5793D;
     --color-clay-600: #8F5E2E;
   }
-  body { font-family: 'Inter', sans-serif; }
-  .font-display { font-family: 'Space Grotesk', sans-serif; }
-  .font-mono { font-family: 'JetBrains Mono', monospace; }
   [x-cloak] { display: none !important; }
 </style>
 </head>
@@ -80,8 +69,8 @@
 <header class="border-b border-line bg-white">
   <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
     <div class="flex items-center gap-2">
-      <span class="w-7 h-7 rounded-md bg-moss-500 flex items-center justify-center text-white text-sm font-display font-bold">R</span>
-      <span class="font-display font-semibold text-lg tracking-tight">Report IA</span>
+      <span class="w-7 h-7 rounded-md bg-moss-500 flex items-center justify-center text-white text-sm font-sans font-bold">R</span>
+      <span class="font-sans font-semibold text-lg tracking-tight">Report IA</span>
     </div>
 
     <div class="flex items-center gap-3">

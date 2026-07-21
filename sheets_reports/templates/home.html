@@ -16,7 +16,7 @@
 
     <div class="flex items-center justify-between mb-8">
       <div>
-        <h1 class="font-display text-2xl font-semibold">Mis tableros</h1>
+        <h1 class="font-sans text-2xl font-semibold">Mis tableros</h1>
         <p class="text-sm text-ink/60 mt-1">Reportes conectados a tus hojas de cálculo de Google Sheets.</p>
       </div>
 
@@ -40,7 +40,7 @@
                 <i class="ti ti-dots text-base" aria-hidden="true"></i>
               </button>
             </div>
-    <h3 class="font-display font-semibold text-base mb-1 group-hover:text-moss-600 truncate" x-text="d.title"></h3>
+    <h3 class="font-sans font-semibold text-base mb-1 group-hover:text-moss-600 truncate" x-text="d.title"></h3>
     <p class="text-xs text-ink/50 mb-3" x-text="d.cardCount + ' tarjetas · editado ' + d.updated"></p>
     <span class="inline-flex items-center gap-1.5 text-[11px] font-mono text-ink/50 bg-paper px-2 py-1 rounded border border-line">
       <i class="ti ti-table text-sm" aria-hidden="true"></i><span x-text="d.sheetName"></span>
@@ -74,7 +74,7 @@
       <div class="w-14 h-14 rounded-2xl bg-moss-50 flex items-center justify-center mx-auto mb-4">
         <i class="ti ti-layout-dashboard text-moss-600 text-2xl" aria-hidden="true"></i>
       </div>
-      <h2 class="font-display text-lg font-semibold mb-1">Crea tu primer tablero</h2>
+      <h2 class="font-sans text-lg font-semibold mb-1">Crea tu primer tablero</h2>
       <p class="text-sm text-ink/50 mb-5 max-w-xs mx-auto">Conecta una hoja de Google Sheets y arma tu primer reporte en minutos.</p>
       <button @click="showNewDashboardModal = true"
               class="bg-moss-500 hover:bg-moss-600 text-white text-sm font-medium px-4 py-2.5 rounded-lg inline-flex items-center gap-2 transition">
@@ -96,7 +96,7 @@
          class="bg-white rounded-2xl w-full max-w-md border border-line shadow-xl">
 
       <div class="px-6 pt-6 pb-4 border-b border-line">
-        <h2 class="font-display text-lg font-semibold">Nuevo tablero</h2>
+        <h2 class="font-sans text-lg font-semibold">Nuevo tablero</h2>
         <p class="text-sm text-ink/50 mt-0.5">Conecta una hoja de cálculo para empezar.</p>
       </div>
 
@@ -137,7 +137,7 @@
          class="bg-white rounded-2xl w-full max-w-md border border-line shadow-xl">
 
       <div class="px-6 pt-6 pb-4 border-b border-line">
-        <h2 class="font-display text-lg font-semibold">Editar tablero</h2>
+        <h2 class="font-sans text-lg font-semibold">Editar tablero</h2>
         <p class="text-sm text-ink/50 mt-0.5">Actualiza el nombre o la fuente de datos.</p>
       </div>
 

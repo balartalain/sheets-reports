@@ -7,7 +7,7 @@
 <header class="border-b border-line bg-header text-white">
   <div class="mx-auto px-6 h-16 flex items-center justify-between">
     <div class="flex items-center gap-2">
-      <span class="font-display font-semibold text-lg tracking-tight">{{ dashboard.title }}</span>
+      <span class="font-sans font-semibold text-lg tracking-tight">{{ dashboard.title }}</span>
     </div>
   </div>
 </header>
@@ -23,7 +23,7 @@
 <script>
   window.DASHBOARD_ID = {{ board_id }};
 </script>
-<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@6.4.0/dist/apexcharts.min.js"></script>
 <link href="https://unpkg.com/tabulator-tables@6.3.1/dist/css/tabulator.min.css" rel="stylesheet">
 <link href="{% static 'sheets_reports/css/tabulator.css' %}" rel="stylesheet">
 <script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js"></script>
