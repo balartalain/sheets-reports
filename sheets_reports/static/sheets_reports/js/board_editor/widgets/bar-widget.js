@@ -23,6 +23,7 @@
         { key: 'stacked', label: 'Apilado', type: 'checkbox' },
         { key: 'dataLabelFormatter', label: 'Formato de Etiquetas de Datos. Ej. {value} %', type: 'text' },
         { key: 'chartWidth', label: 'Forzar ancho de gráfico', type: 'number', min: 100, step: 50 },
+        { key: 'showGrid', label: 'Mostrar cuadrícula', type: 'checkbox' },
       ];
     }
 
@@ -40,6 +41,7 @@
       this.stacked = raw.stacked ?? false;
       this.dataLabelFormatter = raw.dataLabelFormatter;
       this.chartWidth = raw.chartWidth;
+      this.showGrid = raw.showGrid ?? false;
     }
 
     buildElement() {
@@ -59,6 +61,7 @@
         stacked: this.stacked,
         dataLabelFormatter: this.dataLabelFormatter,
         chartWidth: this.chartWidth,
+        showGrid: this.showGrid,
       };
     }
 
@@ -85,7 +88,9 @@
             position: 'center'
           }
         }},
-        //grid: { padding: { bottom: 25 } },
+        grid: {
+          show: this.showGrid
+        },
         dataLabels: {
           enabled: true,
           formatter: (val) => {
