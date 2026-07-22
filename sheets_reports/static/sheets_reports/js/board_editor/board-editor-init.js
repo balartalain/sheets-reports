@@ -11,11 +11,29 @@ function renderPalette(sidebarEl) {
   `).join('');
 }
 
+function setupHeaderAutoHide() {
+  const HIDE_THRESHOLD = 20;
+  const mainEl = document.getElementById('board-main');
+  const headerEl = document.getElementById('app-header');
+  const bodyEl = document.getElementById('board-body');
+  if (!mainEl || !headerEl || !bodyEl) return;
+
+  let headerHidden = false;
+  mainEl.addEventListener('scroll', () => {
+    const shouldHide = mainEl.scrollTop > HIDE_THRESHOLD;
+    if (shouldHide === headerHidden) return;
+    headerHidden = shouldHide;
+    headerEl.classList.toggle('header-hidden', headerHidden);
+    bodyEl.classList.toggle('header-hidden', headerHidden);
+  });
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   const canvasEl = document.getElementById('dashboard-canvas');
   const sidebarEl = document.getElementById('sidebar-components');
   const store = Alpine.store('dashboard');
 
+  setupHeaderAutoHide();
   renderPalette(sidebarEl);
 
   await store.loadWidgetsFromServer();
