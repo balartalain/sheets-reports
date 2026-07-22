@@ -45,10 +45,11 @@
       this.pageSize = raw.pageSize ?? 10;
       this.showPagination = raw.showPagination ?? true;
       this.boldLastRow = raw.boldLastRow ?? false;
+      this.columnOrder = raw.columnOrder ?? null;
     }
 
     getProperties() {
-      return { ...super.getProperties(), pageSize: this.pageSize, showPagination: this.showPagination, boldLastRow: this.boldLastRow };
+      return { ...super.getProperties(), pageSize: this.pageSize, showPagination: this.showPagination, boldLastRow: this.boldLastRow, columnOrder: this.columnOrder };
     }
 
     buildElement() {
@@ -69,9 +70,17 @@
       }
       container.innerHTML = '';
       container.style.backgroundColor = '#fff';
+      let columns = payload.columns || [];
+      if (this.columnOrder && this.columnOrder.length) {
+        const byField = new Map(columns.map(c => [c.field, c]));
+        const ordered = this.columnOrder.map(f => byField.get(f)).filter(Boolean);
+        const remaining = columns.filter(c => !this.columnOrder.includes(c.field));
+        columns = [...ordered, ...remaining];
+      }
       this._table = new Tabulator(container, {
         data: payload.rows || [],
-        columns: payload.columns || [],
+        movableColumns: true,
+        columns,
         layout: 'fitDataStretch',
         pagination: this.showPagination,
         paginationSize: this.pageSize,
@@ -92,7 +101,14 @@
           }
         }
       });
-
+      this._table.on("columnMoved", (_column, columns) => {
+        this.columnOrder = columns.map(col => col.getField());
+        this._dirty = true;
+        const store = window.Alpine && Alpine.store('dashboard');
+        if (store && typeof store._saveWidget === 'function') {
+          store._saveWidget(this);
+        }
+      });
       const downloadBtn = this.el && this.el.querySelector('.download-csv-btn');
       if (downloadBtn) {
         downloadBtn.onclick = () => {

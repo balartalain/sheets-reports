@@ -74,7 +74,7 @@
 
       const options = {
         chart: { type: 'bar', stacked: this.stacked, height: '90%', width: this.chartWidth || '100%', fontFamily: 'inherit', toolbar: this.chartExportToolbar() },
-        colors: ['#2563eb', '#f5a623', '#00e1ffff', '#3965c4ff'],
+        colors: ['#2563eb', '#f5a623', '#00e1ffff', '#8b5cf6'],
         series,
         xaxis: {
           categories: categories.map((cat) => formatearEtiquetaApex(cat, 18)), // Llama a la función para formatear las etiquetas
