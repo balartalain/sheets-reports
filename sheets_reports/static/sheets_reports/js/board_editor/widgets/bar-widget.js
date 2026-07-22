@@ -66,7 +66,7 @@
 
       if (this.chartWidth) {
         container.style.overflowX = 'scroll';
-        container.style.overflowY = 'scroll';
+        container.style.overflowY = '';
       } else {
         container.style.overflowX = '';
         container.style.overflowY = '';
