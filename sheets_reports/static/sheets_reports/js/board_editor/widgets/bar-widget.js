@@ -88,9 +88,9 @@
           },
           maxHeight: 150
         },
-        plotOptions: { bar: { horizontal: this.horizontal, borderRadius: 4, borderRadiusApplication: 'end', columnWidth: '50%',
+        plotOptions: { bar: { horizontal: this.horizontal, borderRadius: 4, borderRadiusApplication: 'end',
           dataLabels:{
-            position: 'center'
+            position: 'top'
           }
         }},
         grid: {
@@ -101,24 +101,27 @@
           formatter: (val) => {
             return this.dataLabelFormatter ? this.dataLabelFormatter.replace('{value}', val) : val;
           },
-          background: {
-              enabled: true,
-              foreColor: '#fff',     // Color del texto DENTRO del fondo (Blanco)
-              padding: 4,            // Espaciado interno del fondo
-              borderRadius: 4,       // Bordes redondeados del fondo
-              borderWidth: 1,        // Grosor del borde
-              borderColor: '#111',   // Color del borde del fondo
-              opacity: 0.9,          // Opacidad del fondo
-              dropShadow: {          // Añade una pequeña sombra al fondo si quieres
-                enabled: false
-              }
-            },
+          //crop: false,
+          offsetY: !this.horizontal ? -20 : 0,
+          offsetX: this.horizontal ? 20 : 0,
+          // background: {
+          //     enabled: true,
+          //     foreColor: '#fff',     // Color del texto DENTRO del fondo (Blanco)
+          //     padding: 4,            // Espaciado interno del fondo
+          //     borderRadius: 4,       // Bordes redondeados del fondo
+          //     borderWidth: 1,        // Grosor del borde
+          //     borderColor: '#111',   // Color del borde del fondo
+          //     opacity: 0.9,          // Opacidad del fondo
+          //     dropShadow: {          // Añade una pequeña sombra al fondo si quieres
+          //       enabled: false
+          //     }
+          //   },
           style: {
             fontSize: '11px',
             colors: ['#333'],
           },
           dropShadow: {
-            enabled: true,    // ¡Activa la sombra nativa!
+            enabled: false,    // ¡Activa la sombra nativa!
             top: 1,           // Desplazamiento vertical de la sombra
             left: 1,          // Desplazamiento horizontal de la sombra
             blur: 1,          // Qué tan difuminada está la sombra
@@ -138,7 +141,8 @@
         yaxis: {
           labels: {
             ...(this.yAxisWidth && { maxWidth: this.yAxisWidth }),
-          }
+          },
+          max: (max) => max * 1.12,
         },
       };
       this.renderApexChart(container, options);
