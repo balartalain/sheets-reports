@@ -336,7 +336,7 @@
       }
       container.innerHTML = '';
       this._chart = new ApexCharts(container, options);
-      this._chart.render();
+      return this._chart.render();
     }
 
     renderError(message, { retryable = false } = {}) {

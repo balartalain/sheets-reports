@@ -1,4 +1,15 @@
 (function () {
+  function applySeriesOrder(series, order) {
+    if (!order || !order.length) return series;
+    const byName = new Map(series.map(s => [s.name, s]));
+    const ordered = order.filter(name => byName.has(name)).map(name => byName.get(name));
+    if (!ordered.length) return series; // orden guardado 100% obsoleto -> usar el original
+    const remaining = series.filter(s => !order.includes(s.name));
+    return [...ordered, ...remaining];
+  }
+
+  const COLOR_PALETTE = ['#2563eb', '#f5a623', '#00e1ffff', '#8b5cf6'];
+
   class BarWidget extends BaseWidget {
     static type = 'bar';
     static palette = {
@@ -12,7 +23,8 @@
     static defaults = { title: 'Gráfico de Barras', width: 'md:col-span-6', height: 300 };
     static help = 'Compara valores entre categorías usando barras: una o más series de datos ' +
       '(ej. ventas por mes, participantes por carrera) agrupadas o apiladas a lo largo de un eje ' +
-      'de categorías. Ideal para comparar magnitudes entre grupos, no para ver tendencias continuas.';
+      'de categorías. Ideal para comparar magnitudes entre grupos, no para ver tendencias continuas. ' +
+      'Con más de una serie, puedes arrastrar los ítems de la leyenda para reordenarlas.';
 
     static FIELD_HORIZONTAL = { key: 'horizontal', label: 'Horizontal', type: 'checkbox' };
 
@@ -42,6 +54,19 @@
       this.dataLabelFormatter = raw.dataLabelFormatter;
       this.chartWidth = raw.chartWidth;
       this.showGrid = raw.showGrid ?? false;
+      this.seriesOrder = Array.isArray(raw.seriesOrder) ? raw.seriesOrder : null;
+      this._seriesColors = new Map();
+    }
+
+    // Asigna un color estable por nombre de serie (no por posición), así el color de cada
+    // serie no cambia al reordenar la leyenda y siempre coincide con el tooltip/las barras.
+    _colorsFor(series) {
+      series.forEach((s) => {
+        if (!this._seriesColors.has(s.name)) {
+          this._seriesColors.set(s.name, COLOR_PALETTE[this._seriesColors.size % COLOR_PALETTE.length]);
+        }
+      });
+      return series.map((s) => this._seriesColors.get(s.name));
     }
 
     buildElement() {
@@ -56,12 +81,19 @@
         dataLabelFormatter: this.dataLabelFormatter,
         chartWidth: this.chartWidth,
         showGrid: this.showGrid,
+        seriesOrder: this.seriesOrder,
       };
     }
 
     renderContent(container, data) {
       const payload = data || this.constructor.mockData();
-      const series = payload.series || [{ name: 'Datos', data: [] }];
+      this._lastData = payload;
+      const rawSeries = payload.series || [{ name: 'Datos', data: [] }];
+      // El render inicial (sin `data`, mientras se espera el fetch real) usa mockData() como
+      // placeholder; no debe consumir la paleta de colores estables, o el primer color quedaría
+      // "gastado" en un nombre de serie que nunca vuelve a aparecer.
+      if (data) this._colorsFor(rawSeries);
+      const series = applySeriesOrder(rawSeries, this.seriesOrder);
       const categories = payload.categories || [];
 
       if (this.chartWidth) {
@@ -74,7 +106,7 @@
 
       const options = {
         chart: { type: 'bar', stacked: this.stacked, height: '90%', width: this.chartWidth || '100%', fontFamily: 'inherit', toolbar: this.chartExportToolbar() },
-        colors: ['#2563eb', '#f5a623', '#00e1ffff', '#8b5cf6'],
+        colors: series.map((s, i) => this._seriesColors.get(s.name) || COLOR_PALETTE[i % COLOR_PALETTE.length]),
         series,
         xaxis: {
           categories: categories.map((cat) => formatearEtiquetaApex(cat, 18)), // Llama a la función para formatear las etiquetas
@@ -145,7 +177,70 @@
           max: (max) => max * 1.12,
         },
       };
-      this.renderApexChart(container, options);
+      this.renderApexChart(container, options).then(() => {
+        this._wireLegendDrag(container, series);
+      });
+    }
+
+    _wireLegendDrag(container, series) {
+      if (this._legendSortable) { this._legendSortable.destroy(); this._legendSortable = null; }
+      if (this._legendObserver) { this._legendObserver.disconnect(); this._legendObserver = null; }
+      if (series.length <= 1) return;
+      const legendEl = container.querySelector('.apexcharts-legend');
+      if (!legendEl) return;
+      this._legendSortable = new Sortable(legendEl, {
+        animation: 150,
+        draggable: '.apexcharts-legend-series',
+        onEnd: (evt) => {
+          // onEnd también dispara en un simple click (ej. el toggle de mostrar/ocultar serie de
+          // ApexCharts), sin que haya habido arrastre real. Si el índice no cambió, no es un
+          // reorden: no tocar el chart y dejar que ApexCharts maneje el toggle por su cuenta.
+          if (evt.oldIndex === evt.newIndex) return;
+          this._onLegendReorder(legendEl);
+        },
+      });
+      // Al mostrar/ocultar una serie desde la leyenda, ApexCharts recrea por completo el nodo
+      // .apexcharts-legend (no solo le cambia estilos), dejando el Sortable de arriba enganchado
+      // a un nodo ya removido del DOM. Este observer detecta ese reemplazo y reengancha.
+      this._legendObserver = new MutationObserver(() => {
+        const current = container.querySelector('.apexcharts-legend');
+        if (current && current !== legendEl) this._wireLegendDrag(container, series);
+      });
+      this._legendObserver.observe(container, { childList: true, subtree: true });
+    }
+
+    _onLegendReorder(legendEl) {
+      const names = [...legendEl.querySelectorAll('.apexcharts-legend-series')]
+        .map(el => el.querySelector('.apexcharts-legend-text')?.textContent)
+        .filter(Boolean);
+      if (!names.length || !this._chart) return;
+      this.seriesOrder = names;
+      this._dirty = true;
+      const store = window.Alpine && Alpine.store('dashboard');
+      if (store && typeof store._saveWidget === 'function') {
+        store._saveWidget(this);
+      }
+      // El estado "oculto" de ApexCharts (toggle de la leyenda) se trackea por índice, no por
+      // nombre: si no lo reaplicamos por nombre después del updateOptions, al reordenar se queda
+      // oculta la serie que quedó en ese índice en vez de la que el usuario ocultó.
+      const oldNames = this._chart.w.globals.seriesNames;
+      const hiddenNames = this._chart.w.globals.collapsedSeriesIndices.map((i) => oldNames[i]).filter(Boolean);
+      // updateOptions() arrastra el "oculto" por índice tal cual estaba antes del reorden; se
+      // limpia primero para que no quede ocultó de más la serie que ahora cae en ese índice.
+      hiddenNames.forEach((name) => this._chart.showSeries(name));
+      const reordered = applySeriesOrder(this._lastData?.series || [], names);
+      const colors = reordered.map((s) => this._seriesColors.get(s.name));
+      this._chart.updateOptions({ series: reordered, colors }, true, true).then(() => {
+        hiddenNames.forEach((name) => this._chart.hideSeries(name));
+        const container = this.getContentContainer();
+        if (container) this._wireLegendDrag(container, reordered);
+      });
+    }
+
+    destroy() {
+      if (this._legendSortable) { this._legendSortable.destroy(); this._legendSortable = null; }
+      if (this._legendObserver) { this._legendObserver.disconnect(); this._legendObserver = null; }
+      super.destroy();
     }
   }
 
