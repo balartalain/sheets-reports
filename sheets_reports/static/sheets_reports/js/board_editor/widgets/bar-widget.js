@@ -213,28 +213,19 @@
       const names = [...legendEl.querySelectorAll('.apexcharts-legend-series')]
         .map(el => el.querySelector('.apexcharts-legend-text')?.textContent)
         .filter(Boolean);
-      if (!names.length || !this._chart) return;
+      if (!names.length) return;
       this.seriesOrder = names;
       this._dirty = true;
       const store = window.Alpine && Alpine.store('dashboard');
       if (store && typeof store._saveWidget === 'function') {
         store._saveWidget(this);
       }
-      // El estado "oculto" de ApexCharts (toggle de la leyenda) se trackea por índice, no por
-      // nombre: si no lo reaplicamos por nombre después del updateOptions, al reordenar se queda
-      // oculta la serie que quedó en ese índice en vez de la que el usuario ocultó.
-      const oldNames = this._chart.w.globals.seriesNames;
-      const hiddenNames = this._chart.w.globals.collapsedSeriesIndices.map((i) => oldNames[i]).filter(Boolean);
-      // updateOptions() arrastra el "oculto" por índice tal cual estaba antes del reorden; se
-      // limpia primero para que no quede ocultó de más la serie que ahora cae en ese índice.
-      hiddenNames.forEach((name) => this._chart.showSeries(name));
-      const reordered = applySeriesOrder(this._lastData?.series || [], names);
-      const colors = reordered.map((s) => this._seriesColors.get(s.name));
-      this._chart.updateOptions({ series: reordered, colors }, true, true).then(() => {
-        hiddenNames.forEach((name) => this._chart.hideSeries(name));
-        const container = this.getContentContainer();
-        if (container) this._wireLegendDrag(container, reordered);
-      });
+      // Variante simple: en vez de updateOptions() (transición animada, pero necesita lidiar a
+      // mano con colores/series ocultas que ApexCharts arrastra por índice entre updates), se
+      // destruye y recrea el chart entero con los datos ya cargados — el mismo camino que usa
+      // cualquier otro refresh del widget (renderContent -> renderApexChart).
+      const container = this.getContentContainer();
+      if (container) this.renderContent(container, this._lastData);
     }
 
     destroy() {
