@@ -21,6 +21,21 @@ _SAFE_BUILTIN_NAMES = (
 SAFE_BUILTINS = {name: getattr(builtins, name) for name in _SAFE_BUILTIN_NAMES if hasattr(builtins, name)}
 
 
+def _restricted_import(name, *args, **kwargs):
+    """
+    La implementación en C de datetime.date.today()/datetime.datetime.now() hace un
+    __import__("time") interno en tiempo de llamada (no un import estático), así que sin este
+    shim esas llamadas fallan con KeyError('__import__') dentro del exec() restringido. Se
+    permite únicamente "time" -- cualquier otro nombre queda bloqueado igual que antes.
+    """
+    if name == "time":
+        return builtins.__import__(name, *args, **kwargs)
+    raise ImportError(f"import de '{name}' no permitido en el código de widgets")
+
+
+SAFE_BUILTINS["__import__"] = _restricted_import
+
+
 class _NumpyPandasJSONEncoder(DjangoJSONEncoder):
     """
     Serializa tipos de numpy/pandas que el código de widgets suele producir sin darse cuenta
@@ -98,11 +113,13 @@ def _build_exec_namespace(dashboard=None):
     en este mismo namespace antes de devolverlo, para que queden disponibles cuando se
     ejecute el código propio del widget a continuación.
     """
+    import datetime
     import pandas as pd
 
     namespace = {
         "__builtins__": SAFE_BUILTINS,
         "pd": pd,
+        "datetime": datetime,
         "JsonResponse": _widget_json_response,
         **get_system_namespace(),
     }

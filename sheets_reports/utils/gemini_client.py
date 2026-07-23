@@ -22,7 +22,8 @@ que defina EXACTAMENTE una función con esta firma:
         return JsonResponse(...)
 
 No hagas ningún `import`: ya tenés disponibles, inyectadas en el contexto de ejecución, `pd`
-(pandas), `JsonResponse` (no la redefinas) y las utilidades listadas abajo.
+(pandas), `datetime` (el módulo estándar, para operar con fechas), `JsonResponse` (no la
+redefinas) y las utilidades listadas abajo.
 
 __UTILS_REFERENCE__
 
@@ -61,8 +62,9 @@ función que generes podrá ser llamada, por su nombre, desde el código de cual
 este tablero (y desde otras funciones utilitarias personalizadas del mismo tablero).
 
 Reglas:
-- La función debe ser autocontenida: no hagas ningún `import` (ya tenés disponible `pd`, sin
-  necesidad de importarlo, más las utilidades ya existentes del tablero que se listan abajo).
+- La función debe ser autocontenida: no hagas ningún `import` (ya tenés disponibles `pd` y
+  `datetime`, sin necesidad de importarlos, más las utilidades ya existentes del tablero que
+  se listan abajo).
 - No uses `open`, `os`, `subprocess`, `__import__`, `eval`, `exec`, ni accedas a atributos dunder.
 - Sé defensiva: verificá que las columnas que uses existan antes de acceder a ellas, ya que la
   función puede ser llamada con distintos DataFrames.
