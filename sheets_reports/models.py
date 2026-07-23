@@ -64,6 +64,7 @@ class WidgetInstance(models.Model):
     CHART_TYPES = [
         ("bar", "Gráfico de Barras"),
         ("line", "Gráfico de Líneas"),
+        ("donut", "Gráfico de Dona"),
         ("kpi", "Tarjeta KPI"),
         ("filter", "Filtro"),
         ("table", "Tabla"),
