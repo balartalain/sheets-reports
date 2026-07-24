@@ -114,6 +114,8 @@
 
             <template x-if="field.type === 'text'">
               <input type="text" x-model="$store.dashboard.drawerDraft[field.key]"
+                     x-bind:readonly="field.readonly"
+                     x-bind:class="field.readonly ? 'bg-paper text-ink/50 cursor-not-allowed' : ''"
                      class="w-full text-sm border border-line rounded-lg px-3 py-2 focus:outline-none focus:border-moss-500">
             </template>
 

@@ -156,6 +156,7 @@ document.addEventListener('alpine:init', () => {
         const data = await r.json();
         if (!r.ok) throw new Error(data.error || 'Error generando código');
         this.drawerDraft.code = data.code;
+        if (data.field) this.drawerDraft.filterField = data.field;
         this.drawerDraft.prompt = '';
       } catch (e) {
         this.drawerGenerateError = e.message;

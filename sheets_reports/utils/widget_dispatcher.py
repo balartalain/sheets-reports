@@ -1,4 +1,5 @@
 import builtins
+import json
 import logging
 
 from django.core.serializers.json import DjangoJSONEncoder
@@ -166,6 +167,28 @@ def execute_widget_code(code: str, request, widget) -> JsonResponse:
         return JsonResponse({"error": str(e)}, status=500)
 
 
+def _sync_filter_field(widget, response: JsonResponse) -> None:
+    """
+    Los widgets de tipo "filter" eligen ellos mismos, en su propio código, la columna que
+    controlan, y la devuelven en su respuesta bajo la clave "field" (ver SYSTEM_INSTRUCTION_TEMPLATE
+    en generate_widget_ia.py). Acá la leemos y la persistimos en properties.filterField, para que
+    quede disponible sin que el usuario tenga que configurarla a mano (necesario en particular para
+    los widgets filter creados automáticamente por generate_dashboard_ia.generate_board_from_prompt).
+    """
+    if response.status_code != 200:
+        return
+    try:
+        data = json.loads(response.content)
+    except (ValueError, TypeError):
+        return
+    if not isinstance(data, dict):
+        return
+    field = data.get("field")
+    if field and field != widget.filter_field:
+        widget.filter_field = field
+        widget.save(update_fields=["properties"])
+
+
 def dispatch_widget(request, widget_id: int) -> JsonResponse:
     """
     Obtiene el widget y ejecuta su código guardado en `widget.code`.
@@ -187,4 +210,9 @@ def dispatch_widget(request, widget_id: int) -> JsonResponse:
     if not widget.code:
         return JsonResponse({"error": "El widget no tiene código asignado."}, status=400)
 
-    return execute_widget_code(widget.code, request, widget)
+    response = execute_widget_code(widget.code, request, widget)
+
+    if widget.chart_type == "filter":
+        _sync_filter_field(widget, response)
+
+    return response

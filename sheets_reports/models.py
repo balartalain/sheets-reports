@@ -121,9 +121,14 @@ class WidgetInstance(models.Model):
 
     @property
     def filter_field(self):
-        """Nombre exacto de columna a filtrar (solo widgets chart_type='filter'), configurado
-        por el usuario en el drawer y guardado en properties.filterField."""
+        """Nombre exacto de columna a filtrar (solo widgets chart_type='filter'), detectado
+        automáticamente a partir de la clave "field" que devuelve el código del widget al
+        ejecutarse, y guardado en properties.filterField (ver widget_dispatcher._sync_filter_field)."""
         return (self.properties or {}).get("filterField", "")
+
+    @filter_field.setter
+    def filter_field(self, value):
+        self.properties = {**(self.properties or {}), "filterField": value or ""}
 
 
 class DashboardUtilFunction(models.Model):

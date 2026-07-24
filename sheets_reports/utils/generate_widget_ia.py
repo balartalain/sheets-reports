@@ -35,13 +35,16 @@ JsonResponse:
 - bar / line / donut: {"series": [{"name": str, "data": [numeros]}], "categories": [etiquetas]}
 - kpi: {"main_value": numero, "main_label": str, "secondary_values": [{"label": str, "value": numero}, ...]}
 - table: {"columns": [{"title": str, "field": str}, ...], "rows": [{...}, ...]}
-- filter: {"options": [valor, ...] | [{"value":..., "label":...}, ...], "selected": valor|null}
+- filter: {"options": [valor, ...] | [{"value":..., "label":...}, ...], "selected": valor|null, "field": "<nombre exacto de columna>"}
 Si no se te indica el chart_type explícitamente, infiérelo de la descripción del usuario.
 
-widget.filter_field -> str (SOLO para widgets con chart_type="filter": nombre exacto de la
-columna que este filtro debe controlar, ya configurado por el usuario. Úsalo así:
-active_filters.get(widget.filter_field, None) para obtener el valor actualmente
-seleccionado. No inventes otros nombres como widget.field_name o widget.title para esto.)
+Para widgets con chart_type="filter": vos mismo elegís, a partir del prompt del usuario y de
+la estructura de las pestañas que se te muestra abajo, el nombre EXACTO de la columna que
+este filtro va a controlar. No leas widget.filter_field para esto (puede no existir todavía
+la primera vez que tu código corre) — usá el nombre de columna directamente como literal de
+texto en tu código, ej. active_filters.get("Nivel", None) para obtener el valor actualmente
+seleccionado. Devolvé ese mismo nombre de columna en tu respuesta bajo la clave "field", como
+en el shape de arriba, para que el sistema lo guarde automáticamente en el widget.
 
 Abajo se te muestran las columnas y filas de ejemplo de TODAS las pestañas del spreadsheet de
 este tablero. Elegí la pestaña que mejor corresponda a lo que pide el usuario (si el prompt

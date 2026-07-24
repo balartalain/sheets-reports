@@ -17,8 +17,9 @@
 
     static FIELD_FILTER_FIELD = {
       key: 'filterField',
-      label: 'Campo a filtrar (nombre exacto de la columna)',
+      label: 'Campo filtro',
       type: 'text',
+      readonly: true,
     };
 
     static get drawerFields() {
@@ -86,6 +87,7 @@
       if (data && !Array.isArray(data) && typeof data === 'object') {
         items = data.options || [];
         selected = data.selected;
+        if (data.field) this.filterField = String(data.field);
       } else {
         items = data || this.constructor.mockData();
       }

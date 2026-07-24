@@ -1,4 +1,5 @@
 import json
+import logging
 
 from django.db import IntegrityError
 from django.http import JsonResponse
@@ -10,7 +11,9 @@ from sheets_reports.models import Dashboard, DashboardUtilFunction, WidgetInstan
 from sheets_reports.utils.generate_widget_ia import generate_widget_code as generate_code_from_prompt
 from sheets_reports.utils.generate_widget_ia import generate_custom_util as generate_custom_util_from_prompt
 from sheets_reports.utils.registry import get_available_utils
-from sheets_reports.utils.widget_dispatcher import dispatch_widget
+from sheets_reports.utils.widget_dispatcher import dispatch_widget, execute_widget_code, _sync_filter_field
+
+logger = logging.getLogger(__name__)
 
 
 def home(request):
@@ -162,6 +165,7 @@ def generate_widget_code(request, dashboard_id):
     # widget nuevo que aún no se guardó, no hay fila en la BD y se usa el que mande el frontend.
     chart_type = data.get("chart_type", "")
     widget_id = data.get("widget_id")
+    widget = None
     if widget_id:
         widget = WidgetInstance.objects.filter(id=widget_id, dashboard_id=dashboard_id).first()
         if widget:
@@ -174,7 +178,26 @@ def generate_widget_code(request, dashboard_id):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-    return JsonResponse({"code": code})
+    response = {"code": code}
+
+    if chart_type == "filter":
+        # Corremos el código una vez acá mismo para poder mostrar "field" en el drawer de
+        # inmediato, sin esperar a que el widget se renderice en el lienzo (que es donde
+        # dispatch_widget lo sincronizaría normalmente). Best-effort: si falla, no rompe la
+        # generación de código — queda pendiente para cuando el widget corra más adelante.
+        try:
+            probe_widget = widget or WidgetInstance(dashboard=dashboard, chart_type=chart_type, properties={})
+            probe_response = execute_widget_code(code, request, probe_widget)
+            if probe_response.status_code == 200:
+                probe_data = json.loads(probe_response.content)
+                if isinstance(probe_data, dict) and probe_data.get("field"):
+                    response["field"] = probe_data["field"]
+                    if widget:
+                        _sync_filter_field(widget, probe_response)
+        except Exception:
+            logger.exception("No se pudo detectar el field del widget filtro %s al generarlo", widget_id)
+
+    return JsonResponse(response)
 
 
 def _serialize_util(u):
