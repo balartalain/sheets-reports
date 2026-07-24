@@ -132,11 +132,14 @@ def generate_board_plan(user_prompt: str, dashboard) -> dict:
     return plan
 
 
-def generate_board_from_prompt(user_prompt: str, source_url: str, user) -> "Dashboard":
+def generate_board_from_prompt(user_prompt: str, source_url: str, user):
     """
     Orquestador completo: crea un Dashboard, pide a Gemini el plan, genera el código de
-    cada widget y persiste todo. Retorna el Dashboard con sus widgets ya creados.
-    Si algo falla, se propaga la excepción sin dejar registros huérfanos.
+    cada widget y persiste todo. Es un generador que va emitiendo dicts de progreso por
+    cada etapa (pensado para alimentar un StreamingHttpResponse en
+    views_dashboard.generate_dashboard_from_prompt); el último dict tiene
+    event="done" y trae el Dashboard ya armado bajo la clave "dashboard".
+    Si algo falla, emite event="error" y no deja registros huérfanos (borra el Dashboard).
     """
     from django.db import transaction
     from sheets_reports.models import Dashboard, WidgetInstance
@@ -148,21 +151,26 @@ def generate_board_from_prompt(user_prompt: str, source_url: str, user) -> "Dash
     )
 
     try:
+        yield {"event": "planning"}
         plan = generate_board_plan(user_prompt, dashboard)
 
         dashboard.title = plan["title"]
         dashboard.save()
 
+        total = len(plan["widgets"])
+        yield {"event": "plan", "title": plan["title"], "total": total}
+
         with transaction.atomic():
-            for w_data in plan["widgets"]:
+            for index, w_data in enumerate(plan["widgets"], start=1):
                 if w_data["chart_type"] == "filter":
                     w_data["properties"].pop("height", None)
+                yield {"event": "widget_start", "index": index, "total": total, "title": w_data["title"]}
                 code = generate_widget_code(
                     prompt=w_data["prompt"],
                     dashboard=dashboard,
                     chart_type=w_data["chart_type"],
                 )
-                WidgetInstance.objects.create(
+                widget = WidgetInstance.objects.create(
                     dashboard=dashboard,
                     title=w_data["title"],
                     chart_type=w_data["chart_type"],
@@ -171,8 +179,10 @@ def generate_board_from_prompt(user_prompt: str, source_url: str, user) -> "Dash
                     properties=w_data["properties"],
                     order=w_data["order"],
                 )
-    except Exception:
+                yield {"event": "widget_done", "index": index, "total": total, "widget_id": widget.id}
+    except Exception as e:
         dashboard.delete()
-        raise
+        yield {"event": "error", "message": str(e)}
+        return
 
-    return dashboard
+    yield {"event": "done", "dashboard": dashboard}

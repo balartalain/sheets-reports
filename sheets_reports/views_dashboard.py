@@ -2,7 +2,7 @@ import json
 from urllib.parse import urlparse
 
 from django.contrib.auth import get_user_model
-from django.http import JsonResponse
+from django.http import JsonResponse, StreamingHttpResponse
 from django.utils.timesince import timesince
 from django.utils.timezone import now
 from django.views.decorators.csrf import csrf_exempt
@@ -118,14 +118,31 @@ def _get_request_data(request):
     return request.GET
 
 
+def _sse_event(event: dict) -> str:
+    """Formatea un dict de progreso como un evento Server-Sent Events (una línea `event:`
+    con el tipo, una línea `data:` con el resto como JSON, línea en blanco de separador)."""
+    event = dict(event)
+    event_type = event.pop("event")
+    return f"event: {event_type}\ndata: {json.dumps(event)}\n\n"
+
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def generate_dashboard_from_prompt(request):
     """
     POST /api/dashboards/generate-from-prompt/
-    Crea un tablero completo desde una descripción en lenguaje natural.
+    Crea un tablero completo desde una descripción en lenguaje natural, transmitiendo el
+    progreso en vivo como Server-Sent Events (text/event-stream) mientras Gemini arma el plan
+    y genera el código de cada widget — esto puede tardar bastante con varios widgets, así que
+    el cliente ve avance real en vez de esperar a ciegas.
     Body: { "prompt": "...", "source_url": "..." }
-    Retorna el dashboard serializado (igual que POST /api/dashboards/).
+    Eventos emitidos (uno por línea `event: <tipo>` + `data: <json>`):
+      planning                          -> arrancó el armado del plan del tablero
+      plan       {title, total}         -> plan listo, se van a generar `total` widgets
+      widget_start {index, total, title} -> arrancó la generación del widget `index`
+      widget_done  {index, total, widget_id} -> terminó ese widget
+      done       {dashboard: {...}}     -> tablero completo, mismo shape que POST /api/dashboards/
+      error      {message}              -> algo falló; no queda ningún registro huérfano
     """
     try:
         data = _get_request_data(request)
@@ -144,9 +161,16 @@ def generate_dashboard_from_prompt(request):
     if not user:
         return JsonResponse({"error": "No hay usuario disponible"}, status=401)
 
-    try:
-        dashboard = generate_board_from_prompt(prompt, source_url, user)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+    def event_stream():
+        try:
+            for event in generate_board_from_prompt(prompt, source_url, user):
+                if event["event"] == "done":
+                    event = {"event": "done", "dashboard": _serialize(event["dashboard"])}
+                yield _sse_event(event)
+        except Exception as e:
+            yield _sse_event({"event": "error", "message": str(e)})
 
-    return JsonResponse(_serialize(dashboard), status=201)
+    response = StreamingHttpResponse(event_stream(), content_type="text/event-stream")
+    response["Cache-Control"] = "no-cache"
+    response["X-Accel-Buffering"] = "no"
+    return response
