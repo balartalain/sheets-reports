@@ -11,6 +11,49 @@ function renderPalette(sidebarEl) {
   `).join('');
 }
 
+function showToast(message) {
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center gap-2';
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  toast.className = 'bg-ink text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-lg opacity-0 transition-opacity duration-200';
+  toast.textContent = message;
+  container.appendChild(toast);
+
+  requestAnimationFrame(() => {
+    toast.classList.remove('opacity-0');
+  });
+
+  setTimeout(() => {
+    toast.classList.add('opacity-0');
+    setTimeout(() => toast.remove(), 200);
+  }, 2000);
+}
+
+async function copyToClipboard(text) {
+  if (navigator.clipboard) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch (err) {
+      // fall through to legacy fallback below
+    }
+  }
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand('copy');
+  document.body.removeChild(textarea);
+}
+
 function setupHeaderAutoHide() {
   const HIDE_THRESHOLD = 20;
   const mainEl = document.getElementById('board-main');
@@ -85,8 +128,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     alert('Widgets guardados en la base de datos.');
   });
 
-  document.getElementById('share-btn').addEventListener('click', () => {
+  document.getElementById('share-btn').addEventListener('click', async () => {
     const url = `${window.location.origin}${window.SHARE_PATH}`;
-    window.prompt('Enlace para compartir (solo lectura):', url);
+    await copyToClipboard(url);
+    showToast('Enlace copiado');
   });
 });
