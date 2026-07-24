@@ -9,6 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from sheets_reports.models import Dashboard
+from sheets_reports.utils.generate_dashboard_ia import generate_board_from_prompt
 
 
 def _get_user(request):
@@ -101,3 +102,51 @@ def dashboard_detail(request, dashboard_id):
         dashboard.source_url = data["source_url"].strip()
     dashboard.save()
     return JsonResponse(_serialize(dashboard))
+
+
+def _get_request_data(request):
+    """Extrae datos del request sin importar el método HTTP o content-type."""
+    if request.content_type and "application/json" in request.content_type:
+        return json.loads(request.body)
+    if request.method == "POST":
+        return request.POST
+    if request.method == "PUT":
+        try:
+            return json.loads(request.body) if request.body else {}
+        except (json.JSONDecodeError, AttributeError):
+            return {}
+    return request.GET
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def generate_dashboard_from_prompt(request):
+    """
+    POST /api/dashboards/generate-from-prompt/
+    Crea un tablero completo desde una descripción en lenguaje natural.
+    Body: { "prompt": "...", "source_url": "..." }
+    Retorna el dashboard serializado (igual que POST /api/dashboards/).
+    """
+    try:
+        data = _get_request_data(request)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "JSON inválido"}, status=400)
+
+    prompt = (data.get("prompt") or "").strip()
+    source_url = (data.get("source_url") or "").strip()
+
+    if not prompt:
+        return JsonResponse({"error": "El prompt es obligatorio"}, status=400)
+    if not source_url:
+        return JsonResponse({"error": "La URL de la hoja es obligatoria"}, status=400)
+
+    user = _get_user(request)
+    if not user:
+        return JsonResponse({"error": "No hay usuario disponible"}, status=401)
+
+    try:
+        dashboard = generate_board_from_prompt(prompt, source_url, user)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse(_serialize(dashboard), status=201)

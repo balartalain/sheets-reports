@@ -25,7 +25,7 @@ def fetch_sheets_preview(source_url: str, n_rows: int = 3) -> dict[str, dict]:
     Trae, en una sola llamada a la API (values_batch_get), la estructura de TODAS las pestañas
     del spreadsheet: sus columnas (fila de encabezado) y las primeras `n_rows` filas de datos de
     cada una. Se usa para darle a Gemini visión completa del spreadsheet al generar código (ver
-    gemini_client._build_sheets_context), sin que el usuario tenga que nombrar la pestaña en su
+    generate_widget_ia._build_sheets_context), sin que el usuario tenga que nombrar la pestaña en su
     descripción, y sin el costo de traer cada pestaña completa como hace fetch_sheet_as_dataframe.
 
     Retorna { "<título de pestaña>": {"columns": [...], "sample_rows": [{col: valor, ...}, ...]} }.

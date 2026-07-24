@@ -7,8 +7,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from sheets_reports.models import Dashboard, DashboardUtilFunction, WidgetInstance
-from sheets_reports.utils.gemini_client import generate_widget_code as generate_code_from_prompt
-from sheets_reports.utils.gemini_client import generate_custom_util as generate_custom_util_from_prompt
+from sheets_reports.utils.generate_widget_ia import generate_widget_code as generate_code_from_prompt
+from sheets_reports.utils.generate_widget_ia import generate_custom_util as generate_custom_util_from_prompt
 from sheets_reports.utils.registry import get_available_utils
 from sheets_reports.utils.widget_dispatcher import dispatch_widget
 

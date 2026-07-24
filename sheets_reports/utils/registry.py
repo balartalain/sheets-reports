@@ -2,7 +2,7 @@
 Registro único de utilidades disponibles en el exec() de los widgets: las del sistema
 (decoradas con @util en su propia definición, donde sea que vivan) más las personalizadas
 de cada tablero (DashboardUtilFunction). Es la única fuente de verdad tanto para el texto
-que se le manda a la IA (ver gemini_client.build_utils_reference) como para la UI del
+que se le manda a la IA (ver generate_widget_ia.build_utils_reference) como para la UI del
 editor (panel de "Funciones utilitarias del tablero").
 """
 import inspect

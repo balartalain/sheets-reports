@@ -25,6 +25,7 @@ urlpatterns = [
     path('', views.home, name='home'),
     path('tableros/<slug:board_slug>/edit/', views.board_editor, name='board_editor'),
     path('tableros/<slug:board_slug>/shared/', views.board_view, name='board_view'),
+    path('api/dashboards/generate-from-prompt/', views_dashboard.generate_dashboard_from_prompt, name='generate_dashboard_from_prompt'),
     path('api/dashboards/', views_dashboard.dashboard_list, name='dashboard_list'),
     path('api/dashboards/<int:dashboard_id>/', views_dashboard.dashboard_detail, name='dashboard_detail'),
     path('api/dashboard/<int:dashboard_id>/widgets/', views.dashboard_widgets, name='dashboard_widgets'),
