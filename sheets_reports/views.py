@@ -128,27 +128,6 @@ def widget_detail(request, widget_id):
 
 @csrf_exempt
 @require_http_methods(["POST"])
-def dashboard_filters(request, board_id):
-    """POST: guarda un valor de filtro en la sesión, asociado a este dashboard."""
-    try:
-        Dashboard.objects.get(id=board_id)
-    except Dashboard.DoesNotExist:
-        return JsonResponse({"error": "Dashboard no encontrado"}, status=404)
-
-    data = _get_request_data(request)
-    field = data.get("field")
-    if not field:
-        return JsonResponse({"error": "field requerido"}, status=400)
-
-    dashboard_filters = request.session.setdefault("dashboard_filters", {})
-    dashboard_filters.setdefault(str(board_id), {})[field] = data.get("value")
-    request.session.modified = True
-
-    return JsonResponse({"ok": True})
-
-
-@csrf_exempt
-@require_http_methods(["POST"])
 def generate_widget_code(request, dashboard_id):
     """POST: genera código Python para un widget a partir de un prompt en lenguaje natural, vía Gemini."""
     try:

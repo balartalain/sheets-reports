@@ -385,7 +385,12 @@
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
           try {
-            const res = await fetch(apiUrl(`/api/widget/${this.id}/data/`), { signal: controller.signal });
+            const url = apiUrl(`/api/widget/${this.id}/data/`);
+            const filterQs = Alpine.store('dashboard').getFilterQueryString
+              ? Alpine.store('dashboard').getFilterQueryString()
+              : '';
+            const finalUrl = filterQs ? url + '?' + filterQs : url;
+            const res = await fetch(finalUrl, { signal: controller.signal });
             const json = await res.json().catch(() => null);
             return { r: res, data: json };
           } finally {

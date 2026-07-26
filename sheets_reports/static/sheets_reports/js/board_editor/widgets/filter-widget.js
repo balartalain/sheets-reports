@@ -118,19 +118,9 @@
       });
     }
 
-    async _onFilterChange(value) {
+    _onFilterChange(value) {
       if (!this.filterField) return;
-      const dashboardId = Alpine.store('dashboard').dashboardId;
-      try {
-        await fetch(apiUrl(`/api/dashboard/${dashboardId}/filters/`), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ field: this.filterField, value }),
-        });
-      } catch (e) {
-        // silencioso, igual que el resto de las llamadas fetch en este archivo
-      }
-      window.dispatchEvent(new CustomEvent('dashboard:filters-changed', { detail: { field: this.filterField, value } }));
+      Alpine.store('dashboard').setFilter(this.filterField, value);
     }
   }
 

@@ -1,6 +1,7 @@
 import builtins
 import json
 import logging
+import sys
 
 from django.core.serializers.json import DjangoJSONEncoder
 from django.http import JsonResponse
@@ -22,15 +23,37 @@ _SAFE_BUILTIN_NAMES = (
 SAFE_BUILTINS = {name: getattr(builtins, name) for name in _SAFE_BUILTIN_NAMES if hasattr(builtins, name)}
 
 
+_ALLOWED_TRANSITIVE_IMPORT_ROOTS = {
+    "time",
+    "collections",
+    "numpy",
+    "pandas",
+    "duckdb",
+    "decimal",
+    "uuid",
+    "datetime",
+    "math",
+    "json",
+    "re",
+    "functools",
+    "itertools",
+    "typing",
+    "copy",
+    "hashlib",
+}
+
+
 def _restricted_import(name, *args, **kwargs):
-    """
-    La implementación en C de datetime.date.today()/datetime.datetime.now() hace un
-    __import__("time") interno en tiempo de llamada (no un import estático), así que sin este
-    shim esas llamadas fallan con KeyError('__import__') dentro del exec() restringido. Se
-    permite únicamente "time" -- cualquier otro nombre queda bloqueado igual que antes.
-    """
-    if name == "time":
+    root = name.split(".")[0]
+    if root in _ALLOWED_TRANSITIVE_IMPORT_ROOTS:
         return builtins.__import__(name, *args, **kwargs)
+    try:
+        frame = sys._getframe(1)
+        filename = frame.f_code.co_filename
+        if any(trusted in filename for trusted in ("duckdb", "pandas", "numpy")):
+            return builtins.__import__(name, *args, **kwargs)
+    except (ValueError, AttributeError):
+        pass
     raise ImportError(f"import de '{name}' no permitido en el código de widgets")
 
 
@@ -73,11 +96,15 @@ def _widget_json_response(data=None, **kwargs):
 
 @util(
     category="Filtros",
-    description="Filtros activos guardados en sesión para el tablero de este widget: {campo: valor}.",
+    description="Filtros activos (desde URL) para el tablero de este widget: {campo: valor}.",
     example="active_filters = get_active_filters(request, widget)",
 )
 def get_active_filters(request, widget) -> dict:
-    return request.session.get("dashboard_filters", {}).get(str(widget.dashboard_id), {})
+    filters = {}
+    for key, value in request.GET.items():
+        if key.startswith("filtro_"):
+            filters[key[7:]] = value
+    return filters
 
 
 @util(

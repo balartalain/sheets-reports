@@ -129,7 +129,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   document.getElementById('share-btn').addEventListener('click', async () => {
-    const url = `${window.location.origin}${window.SHARE_PATH}`;
+    const base = `${window.location.origin}${window.SHARE_PATH}`;
+    const qs = Alpine.store('dashboard').getFilterQueryString
+      ? Alpine.store('dashboard').getFilterQueryString()
+      : '';
+    const url = qs ? base + '?' + qs : base;
     await copyToClipboard(url);
     showToast('Enlace copiado');
   });
