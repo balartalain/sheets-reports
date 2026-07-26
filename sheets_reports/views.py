@@ -1,5 +1,6 @@
 import json
 import logging
+import threading
 
 from django.db import IntegrityError
 from django.http import JsonResponse
@@ -53,6 +54,27 @@ def _get_request_data(request):
     return request.GET
 
 
+def _pre_warm_dashboard_cache(dashboard) -> None:
+    """
+    Inicializa en background la base DuckDB persistente (y por transitividad el
+    pickle cache de DataFrames), para que cuando los widgets del tablero pidan
+    datos por primera vez no tengan que esperar el fetch a Google Sheets ni la
+    inicialización de DuckDB. Best-effort: si falla silenciosamente, el primer
+    widget que se renderice hará la inicialización bajo el lock distribuido.
+    """
+    from sheets_reports.utils.duckdb_query import get_query_connection
+
+    def _warm():
+        try:
+            con = get_query_connection(dashboard)
+            con.close()
+        except Exception:
+            pass
+
+    t = threading.Thread(target=_warm, daemon=True)
+    t.start()
+
+
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
 def dashboard_widgets(request, dashboard_id):
@@ -68,7 +90,13 @@ def dashboard_widgets(request, dashboard_id):
         widgets = dashboard.widgets.all().values(
             "id", "title", "chart_type", "code", "properties", "order"
         )
-        return JsonResponse(list(widgets), safe=False)
+        response = JsonResponse(list(widgets), safe=False)
+
+        # Pre-warm: inicializar la base DuckDB persistente y el pickle cache
+        # en background, para que cuando los widgets pidan datos ya estén listos.
+        _pre_warm_dashboard_cache(dashboard)
+
+        return response
 
     try:
         data = _get_request_data(request)

@@ -1,4 +1,7 @@
+import os
+import pickle
 import time
+from hashlib import md5
 
 import pandas as pd
 from django.core.cache import cache
@@ -9,11 +12,13 @@ from .registry import util
 CACHE_TIMEOUT = 300  # 5 minutos
 LOCK_TIMEOUT = 30  # segundos máximo que puede tardar un fetch a Google Sheets
 LOCK_POLL_INTERVAL = 0.2
+PICKLE_CACHE_DIR = "/tmp/sheets_cache"
 
 
 def fetch_with_lock(cache_key: str, timeout: int, fetch_fn):
     """
-    Obtiene `cache_key` de cache, o lo genera con `fetch_fn()` si no existe.
+    Obtiene `cache_key` de cache (DatabaseCache, compartido entre workers),
+    o lo genera con `fetch_fn()` si no existe.
     Usa un lock (vía `cache.add`, atómico) para que, cuando varias requests piden
     la misma key al mismo tiempo con la cache fría, solo UNA llame a la API real;
     el resto espera y reusa ese resultado en vez de cada una golpear la API por su
@@ -32,7 +37,6 @@ def fetch_with_lock(cache_key: str, timeout: int, fetch_fn):
         finally:
             cache.delete(lock_key)
 
-    # Otra request ya está haciendo el fetch: esperamos a que lo deje en cache.
     deadline = time.monotonic() + LOCK_TIMEOUT
     while time.monotonic() < deadline:
         time.sleep(LOCK_POLL_INTERVAL)
@@ -40,9 +44,51 @@ def fetch_with_lock(cache_key: str, timeout: int, fetch_fn):
         if value is not None:
             return value
 
-    # El que tenía el lock nunca terminó (o expiró): lo intentamos nosotros.
     value = fetch_fn()
     cache.set(cache_key, value, timeout)
+    return value
+
+
+def _pickle_path(cache_key: str) -> str:
+    return os.path.join(PICKLE_CACHE_DIR, f"{md5(cache_key.encode()).hexdigest()}.pkl")
+
+
+def fetch_pickle_with_lock(cache_key: str, timeout: int, fetch_fn):
+    """
+    Como fetch_with_lock pero almacena el valor como archivo pickle en disco
+    (en vez de DatabaseCache), mucho más rápido para DataFrames grandes.
+    Los locks siguen usando Django Cache (livianos).
+    """
+    pkl = _pickle_path(cache_key)
+
+    if os.path.exists(pkl):
+        if os.path.getmtime(pkl) + timeout > time.time():
+            with open(pkl, "rb") as f:
+                return pickle.load(f)
+        os.remove(pkl)  # stale → limpiar antes de re-fetch
+
+    lock_key = f"{cache_key}_lock"
+    if cache.add(lock_key, True, LOCK_TIMEOUT):
+        try:
+            value = fetch_fn()
+            os.makedirs(PICKLE_CACHE_DIR, exist_ok=True)
+            with open(pkl, "wb") as f:
+                pickle.dump(value, f)
+            return value
+        finally:
+            cache.delete(lock_key)
+
+    deadline = time.monotonic() + LOCK_TIMEOUT
+    while time.monotonic() < deadline:
+        time.sleep(LOCK_POLL_INTERVAL)
+        if os.path.exists(pkl) and os.path.getmtime(pkl) + timeout > time.time():
+            with open(pkl, "rb") as f:
+                return pickle.load(f)
+
+    value = fetch_fn()
+    os.makedirs(PICKLE_CACHE_DIR, exist_ok=True)
+    with open(pkl, "wb") as f:
+        pickle.dump(value, f)
     return value
 
 
