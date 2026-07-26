@@ -10,7 +10,7 @@ from sheets_reports.connectors.base import DataFrameBackedConnector
 from .registry import util
 
 CACHE_TIMEOUT = 300  # 5 minutos
-LOCK_TIMEOUT = 30  # segundos máximo que puede tardar un fetch a Google Sheets
+LOCK_TIMEOUT = 30  # segundos máximo que puede tardar un fetch a Google Sheets (protegido por rate limiter global)
 LOCK_POLL_INTERVAL = 0.2
 PICKLE_CACHE_DIR = "/tmp/sheets_cache"
 
@@ -65,7 +65,10 @@ def fetch_pickle_with_lock(cache_key: str, timeout: int, fetch_fn):
         if os.path.getmtime(pkl) + timeout > time.time():
             with open(pkl, "rb") as f:
                 return pickle.load(f)
-        os.remove(pkl)  # stale → limpiar antes de re-fetch
+        try:
+            os.remove(pkl)
+        except FileNotFoundError:
+            pass  # otro worker ya lo eliminó
 
     lock_key = f"{cache_key}_lock"
     if cache.add(lock_key, True, LOCK_TIMEOUT):

@@ -18,8 +18,9 @@ from .registry import util
 from sheets_reports.connectors.base import DataFrameBackedConnector
 
 _DB_DIR = "/tmp"
-_INIT_LOCK_TIMEOUT = 120  # margen amplio para inicializar (fetch de Google Sheets API)
+_INIT_LOCK_TIMEOUT = 30  # init ahora solo crea esquemas vacíos, sin fetch de datos
 _SENTINEL = "__initialized__"
+_META = "__sheets_meta__"  # mapea qualified_name → nombre original de pestaña
 
 
 def _db_path(dashboard_id: int) -> str:
@@ -56,8 +57,9 @@ def _is_fresh(path: str) -> bool:
 
 def _init_database(dashboard) -> str:
     """
-    Inicializa la base DuckDB persistente: crea tablas persistentes a partir
-    de los DataFrames (Google Sheets) o adjunta el catálogo (Postgres).
+    Crea el archivo DuckDB con tablas vacías (solo estructura) para cada pestaña
+    del origen. No baja datos — eso se hace bajo demanda en _ensure_table_data
+    cuando un widget realmente necesita la tabla.
     """
     dashboard_id = dashboard.id
     path = _db_path(dashboard_id)
@@ -71,14 +73,17 @@ def _init_database(dashboard) -> str:
         connector = dashboard.data_source.get_connector()
 
         if isinstance(connector, DataFrameBackedConnector):
-            for table in connector.list_tables():
-                df = connector.fetch_dataframe(table.name)
-                if df.shape[1] == 0:
-                    continue
-                name = connector.qualified_table_name(table, alias)
-                con.register("_df", df)
-                con.execute(f"CREATE TABLE {name} AS SELECT * FROM _df")
-                con.execute("DROP VIEW IF EXISTS _df")
+            all_tables = connector.list_tables()
+            con.execute(f"CREATE TABLE {_META} (qualified VARCHAR, original VARCHAR)")
+            for table in all_tables:
+                qname = connector.qualified_table_name(table, alias)
+                if table.columns:
+                    cols = ', '.join(f'"{c}" VARCHAR' for c in table.columns)
+                    con.execute(f'CREATE TABLE "{qname}" ({cols})')
+                esc_orig = table.original_name if hasattr(table, 'original_name') else table.name
+                con.execute(
+                    f"INSERT INTO {_META} VALUES ('{qname}', '{esc_orig.replace(chr(39), chr(39)+chr(39))}')"
+                )
         else:
             connector.register(con, alias=alias)
 
@@ -91,6 +96,61 @@ def _init_database(dashboard) -> str:
 
     con.close()
     return path
+
+
+def _ensure_table_data(dashboard, qualified_table_name: str) -> None:
+    """
+    Si la tabla DuckDB está vacía (recién creada), baja los datos del origen
+    y los inserta. Lock distribuido por tabla para que solo un worker lo haga.
+    """
+    path = _db_path(dashboard.id)
+    if not _is_fresh(path):
+        get_query_connection(dashboard)
+
+    lock_key = f"duckdb_fill_{dashboard.id}_{qualified_table_name}"
+    if not cache.add(lock_key, "1", timeout=_INIT_LOCK_TIMEOUT):
+        return
+
+    try:
+        con = duckdb.connect(path)
+        try:
+            esc_q = qualified_table_name.replace("'", "''")
+            row = con.execute(
+                "SELECT COUNT(*) FROM information_schema.tables "
+                f"WHERE table_name = '{esc_q}'"
+            ).fetchone()
+            table_exists = bool(row and row[0] > 0)
+
+            if table_exists:
+                row = con.execute(f'SELECT COUNT(*) FROM "{qualified_table_name}"').fetchone()
+                if row and row[0] > 0:
+                    return
+
+            row = con.execute(
+                f"SELECT original FROM {_META} WHERE qualified = '{esc_q}'"
+            ).fetchone()
+            if not row:
+                return
+
+            connector = dashboard.data_source.get_connector()
+            if not isinstance(connector, DataFrameBackedConnector):
+                return
+
+            df = connector.fetch_dataframe(row[0])
+            if df.shape[1] == 0:
+                return
+
+            if not table_exists:
+                cols = ', '.join(f'"{c}" VARCHAR' for c in df.columns)
+                con.execute(f'CREATE TABLE "{qualified_table_name}" ({cols})')
+
+            con.register("_df", df)
+            con.execute(f'INSERT INTO "{qualified_table_name}" SELECT * FROM _df')
+            con.execute("DROP VIEW IF EXISTS _df")
+        finally:
+            con.close()
+    finally:
+        cache.delete(lock_key)
 
 
 @util(
