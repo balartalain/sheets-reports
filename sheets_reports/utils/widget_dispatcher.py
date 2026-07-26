@@ -44,19 +44,13 @@ _ALLOWED_TRANSITIVE_IMPORT_ROOTS = {
 
 
 def _restricted_import(name, *args, **kwargs):
-    """
-    Algunas dependencias de confianza que se inyectan en el exec() (no el código del widget en
-    sí) hacen imports internos en tiempo de llamada, no estáticos, en vez de al importarlas
-    arriba del archivo -- ej. la implementación en C de datetime.date.today() hace
-    __import__("time"); con.execute(...).df() de duckdb dispara imports internos de submódulos
-    de numpy/pandas/collections para convertir el resultado. Sin este shim esas llamadas
-    fallan con ImportError dentro del exec() restringido. Se permite cualquier import cuyo
-    paquete de nivel superior esté en _ALLOWED_TRANSITIVE_IMPORT_ROOTS -- todo lo demás
-    (os, subprocess, etc.) sigue bloqueado igual que antes.
-    """
     root = name.split(".")[0]
     if root in _ALLOWED_TRANSITIVE_IMPORT_ROOTS:
         return builtins.__import__(name, *args, **kwargs)
+
+    # Inspección de pila: si el import lo dispara código interno de duckdb,
+    # pandas o numpy (no el código del widget), lo permitimos igual aunque
+    # el módulo no esté en la whitelist explícita.
     try:
         frame = sys._getframe(1)
         filename = frame.f_code.co_filename
@@ -64,6 +58,7 @@ def _restricted_import(name, *args, **kwargs):
             return builtins.__import__(name, *args, **kwargs)
     except (ValueError, AttributeError):
         pass
+
     raise ImportError(f"import de '{name}' no permitido en el código de widgets")
 
 
@@ -172,12 +167,30 @@ def _build_exec_namespace(dashboard=None):
     return namespace
 
 
+def _preload_widget_tables(widget) -> None:
+    """Carga bajo demanda las tablas DuckDB que el código del widget referencia."""
+    import re
+
+    dashboard = widget.dashboard
+    if dashboard.data_source_id is None:
+        return
+
+    from sheets_reports.utils.duckdb_query import _ensure_table_data
+
+    alias = dashboard.data_source.source_type
+    pattern = re.compile(re.escape(alias) + r"__(\w+)")
+    for m in pattern.finditer(widget.code or ""):
+        _ensure_table_data(dashboard, f"{alias}__{m.group(1)}")
+
+
 def execute_widget_code(code: str, request, widget) -> JsonResponse:
     """
     Ejecuta el código Python guardado en widget.code. El código debe definir
     `def run(request, widget):` que retorna un JsonResponse (misma convención de
     retorno que las funciones basadas en archivo).
     """
+    _preload_widget_tables(widget)
+
     try:
         namespace = _build_exec_namespace(widget.dashboard)
     except CustomUtilError as e:
