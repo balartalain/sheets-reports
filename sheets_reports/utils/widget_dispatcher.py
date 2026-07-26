@@ -44,6 +44,16 @@ _ALLOWED_TRANSITIVE_IMPORT_ROOTS = {
 
 
 def _restricted_import(name, *args, **kwargs):
+    """
+    Algunas dependencias de confianza que se inyectan en el exec() (no el código del widget en
+    sí) hacen imports internos en tiempo de llamada, no estáticos, en vez de al importarlas
+    arriba del archivo -- ej. la implementación en C de datetime.date.today() hace
+    __import__("time"); con.execute(...).df() de duckdb dispara imports internos de submódulos
+    de numpy/pandas/collections para convertir el resultado. Sin este shim esas llamadas
+    fallan con ImportError dentro del exec() restringido. Se permite cualquier import cuyo
+    paquete de nivel superior esté en _ALLOWED_TRANSITIVE_IMPORT_ROOTS -- todo lo demás
+    (os, subprocess, etc.) sigue bloqueado igual que antes.
+    """
     root = name.split(".")[0]
     if root in _ALLOWED_TRANSITIVE_IMPORT_ROOTS:
         return builtins.__import__(name, *args, **kwargs)

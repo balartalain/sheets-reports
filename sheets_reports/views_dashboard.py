@@ -8,7 +8,7 @@ from django.utils.timezone import now
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from sheets_reports.models import Dashboard
+from sheets_reports.models import Dashboard, DataSource
 from sheets_reports.utils.generate_dashboard_ia import generate_board_from_prompt
 
 
@@ -36,16 +36,54 @@ def _sheet_name(source_url):
 
 
 def _serialize(dashboard):
+    data_source = dashboard.data_source
+    source_url = ""
+    if data_source and data_source.source_type == DataSource.SourceType.GOOGLE_SHEETS:
+        source_url = data_source.config.get("source_url", "")
     return {
         "id": dashboard.id,
         "title": dashboard.title,
         "slug": dashboard.slug,
-        "source_url": dashboard.source_url,
-        "sheetName": _sheet_name(dashboard.source_url),
+        "source_url": source_url,
+        "sheetName": _sheet_name(source_url),
+        "data_source": {
+            "id": data_source.id,
+            "name": data_source.name,
+            "source_type": data_source.source_type,
+        } if data_source else None,
         "cardCount": dashboard.widgets.count(),
         "created_at": dashboard.created_at.isoformat(),
         "updated": timesince(dashboard.created_at, now()),
     }
+
+
+def _resolve_data_source(data, user, name_hint):
+    """
+    Resuelve la DataSource a partir del payload de un request de creación/generación de
+    dashboard: si trae `data_source_id`, reutiliza una DataSource ya existente (el único
+    camino hoy para usar un origen no-Sheets, ej. Postgres, dado que todavía no hay UI para
+    crearlos -- se dan de alta vía Django admin). Si trae `source_url`, crea una DataSource
+    "google_sheets" nueva sobre la marcha, por compatibilidad con el formulario actual (que
+    solo conoce source_url). Retorna (data_source, None) o (None, JsonResponse de error).
+    """
+    data_source_id = data.get("data_source_id")
+    if data_source_id:
+        try:
+            return DataSource.objects.get(id=data_source_id), None
+        except DataSource.DoesNotExist:
+            return None, JsonResponse({"error": "Origen de datos no encontrado"}, status=404)
+
+    source_url = (data.get("source_url") or "").strip()
+    if source_url:
+        data_source = DataSource.objects.create(
+            name=f"{name_hint} (Sheets)",
+            source_type=DataSource.SourceType.GOOGLE_SHEETS,
+            config={"source_url": source_url},
+            owner=user,
+        )
+        return data_source, None
+
+    return None, JsonResponse({"error": "Se requiere data_source_id o source_url"}, status=400)
 
 
 @csrf_exempt
@@ -68,9 +106,13 @@ def dashboard_list(request):
     if not user:
         return JsonResponse({"error": "No hay usuario disponible"}, status=401)
 
+    data_source, error = _resolve_data_source(data, user, title)
+    if error:
+        return error
+
     dashboard = Dashboard.objects.create(
         title=title,
-        source_url=data.get("source_url", "").strip(),
+        data_source=data_source,
         user=user,
     )
     return JsonResponse(_serialize(dashboard), status=201)
@@ -98,8 +140,23 @@ def dashboard_detail(request, dashboard_id):
         if not title:
             return JsonResponse({"error": "El título no puede estar vacío"}, status=400)
         dashboard.title = title
-    if "source_url" in data:
-        dashboard.source_url = data["source_url"].strip()
+    if "data_source_id" in data:
+        try:
+            dashboard.data_source = DataSource.objects.get(id=data["data_source_id"])
+        except DataSource.DoesNotExist:
+            return JsonResponse({"error": "Origen de datos no encontrado"}, status=404)
+    elif "source_url" in data:
+        source_url = (data["source_url"] or "").strip()
+        if dashboard.data_source_id and dashboard.data_source.source_type == DataSource.SourceType.GOOGLE_SHEETS:
+            dashboard.data_source.config = {"source_url": source_url}
+            dashboard.data_source.save(update_fields=["config", "updated_at"])
+        else:
+            dashboard.data_source = DataSource.objects.create(
+                name=f"{dashboard.title} (Sheets)",
+                source_type=DataSource.SourceType.GOOGLE_SHEETS,
+                config={"source_url": source_url},
+                owner=dashboard.user,
+            )
     dashboard.save()
     return JsonResponse(_serialize(dashboard))
 
@@ -135,7 +192,10 @@ def generate_dashboard_from_prompt(request):
     progreso en vivo como Server-Sent Events (text/event-stream) mientras Gemini arma el plan
     y genera el código de cada widget — esto puede tardar bastante con varios widgets, así que
     el cliente ve avance real en vez de esperar a ciegas.
-    Body: { "prompt": "...", "source_url": "..." }
+    Body: { "prompt": "...", "source_url": "..." } o { "prompt": "...", "data_source_id": N }
+    (data_source_id apunta a una DataSource ya creada, ej. una conexión Postgres dada de alta
+    vía Django admin; source_url crea una DataSource "google_sheets" nueva al vuelo, por
+    compatibilidad con el formulario actual).
     Eventos emitidos (uno por línea `event: <tipo>` + `data: <json>`):
       planning                          -> arrancó el armado del plan del tablero
       plan       {title, total}         -> plan listo, se van a generar `total` widgets
@@ -150,20 +210,21 @@ def generate_dashboard_from_prompt(request):
         return JsonResponse({"error": "JSON inválido"}, status=400)
 
     prompt = (data.get("prompt") or "").strip()
-    source_url = (data.get("source_url") or "").strip()
 
     if not prompt:
         return JsonResponse({"error": "El prompt es obligatorio"}, status=400)
-    if not source_url:
-        return JsonResponse({"error": "La URL de la hoja es obligatoria"}, status=400)
 
     user = _get_user(request)
     if not user:
         return JsonResponse({"error": "No hay usuario disponible"}, status=401)
 
+    data_source, error = _resolve_data_source(data, user, "Tablero generado")
+    if error:
+        return error
+
     def event_stream():
         try:
-            for event in generate_board_from_prompt(prompt, source_url, user):
+            for event in generate_board_from_prompt(prompt, data_source, user):
                 if event["event"] == "done":
                     event = {"event": "done", "dashboard": _serialize(event["dashboard"])}
                 yield _sse_event(event)

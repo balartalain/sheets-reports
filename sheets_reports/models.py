@@ -3,11 +3,73 @@ from django.conf import settings
 from django.utils.text import slugify
 
 
+class DataSource(models.Model):
+    """
+    Origen de datos configurado (Google Sheets, Postgres, ...), desacoplado del Dashboard que
+    lo usa para poder reutilizarse entre varios tableros. El tipo (source_type) determina qué
+    DataConnector (ver sheets_reports.connectors) interpreta `config`: para "google_sheets" es
+    {"source_url": "..."}; para "postgres", host/port/database/user/password/sslmode. La forma
+    exacta de cada tipo la valida el pydantic BaseModel que devuelve
+    connectors.<tipo>.config_schema(), no este modelo.
+    """
+    class SourceType(models.TextChoices):
+        GOOGLE_SHEETS = "google_sheets", "Google Sheets"
+        POSTGRES = "postgres", "PostgreSQL"
+
+    name = models.CharField(
+        max_length=255,
+        help_text="Nombre descriptivo de esta conexión (ej. 'Ventas - Postgres prod').",
+    )
+    source_type = models.CharField(
+        max_length=30,
+        choices=SourceType.choices,
+        help_text="Tipo de origen de datos; determina qué conector (sheets_reports.connectors) lo interpreta.",
+    )
+    config = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Configuración específica del tipo de origen (URL de sheet, credenciales de Postgres, etc.).",
+    )
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="data_sources",
+        help_text="Usuario propietario de esta conexión.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Origen de Datos"
+        verbose_name_plural = "Orígenes de Datos"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_source_type_display()})"
+
+    def get_connector(self):
+        from sheets_reports.connectors.registry import get_connector
+        return get_connector(self)
+
+
 class Dashboard(models.Model):
     """Tablero de reportes que agrupa widgets visuales."""
     source_url = models.URLField(
         max_length=500,
-        help_text="URL de la hoja de Google Sheets de donde se extraerán los datos.",
+        blank=True,
+        default="",
+        help_text=(
+            "OBSOLETO: URL de Google Sheets, reemplazado por `data_source`. Se conserva "
+            "temporalmente solo para el fallback de lectura durante la migración a DataSource."
+        ),
+    )
+    data_source = models.ForeignKey(
+        DataSource,
+        on_delete=models.PROTECT,
+        related_name="dashboards",
+        null=True,
+        blank=True,
+        help_text="Origen de datos de este tablero.",
     )
     title = models.CharField(
         max_length=255,

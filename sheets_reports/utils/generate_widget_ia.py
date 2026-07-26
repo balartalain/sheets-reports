@@ -4,7 +4,7 @@ import logging
 from django.conf import settings
 from google import genai
 
-from sheets_reports.utils.cache import get_cached_sheets_preview
+from sheets_reports.utils.cache import get_cached_tables
 from sheets_reports.utils.registry import get_available_utils
 
 logger = logging.getLogger(__name__)
@@ -30,6 +30,38 @@ __UTILS_REFERENCE__
 No uses `open`, `os`, `subprocess`, `__import__`, `eval`, `exec`, ni accedas a atributos
 dunder — no están disponibles y el código fallará.
 
+Para obtener los datos, usá SIEMPRE `get_query_connection(widget.dashboard)`, que retorna una
+conexión DuckDB con las tablas del origen de datos de este tablero ya registradas/adjuntas
+(sin importar si el origen es una hoja de cálculo, una base de datos SQL, etc. — la forma de
+consultarlas es siempre la misma):
+
+    con = get_query_connection(widget.dashboard)
+
+Usá siempre el nombre EXACTO de tabla que se muestra abajo en la estructura del origen de
+datos (según el tipo de origen puede ser, por ejemplo, `google_sheets__Ventas` o
+`postgres.public.ventas` — nunca lo inventes ni lo adivines, copialo tal cual aparece abajo).
+Para pasar valores dinámicos a la consulta (ej. un filtro activo), usá parámetros en vez de
+interpolar el string a mano: `con.execute("SELECT * FROM tabla WHERE region = ?", [valor])`.
+No generes `INSERT`/`UPDATE`/`DELETE` ni DDL: algunos orígenes son de solo lectura y esas
+sentencias van a fallar. No uses `get_cached_df` en código nuevo — existe solo por
+compatibilidad con widgets ya guardados de antes de que hubiera SQL genérico.
+
+TODO el procesamiento de datos (conversiones de tipo, filtrado de nulos, agregaciones,
+ordenamiento, formateo de fechas, etc.) debés hacerlo DENTRO de la consulta SQL, no con
+pandas. DuckDB soporta `CAST`, `TRY_CAST`, `SUM`, `COUNT`, `GROUP BY`, `ORDER BY`, `WHERE`,
+funciones de fecha, etc. — usá todo eso directamente en SQL. No recorras ni transformes el
+resultado con pandas después de la consulta.
+
+Al final, convertí el resultado a listas Python usando `.fetchall()` o `.df()` solo para
+extraer los valores y armar el JsonResponse:
+
+    rows = con.execute("SELECT categoria, SUM(ventas) FROM ... GROUP BY ...").fetchall()
+    categories = [r[0] for r in rows]
+    data_values = [r[1] for r in rows]
+
+NO uses pandas para agrupar, sumar, filtrar, ordenar, ni ninguna otra operación de datos.
+Todo eso va en DuckDB SQL.
+
 El tipo de widget (chart_type) determina el shape exacto que `run` debe retornar en el
 JsonResponse:
 - bar / line / donut: {"series": [{"name": str, "data": [numeros]}], "categories": [etiquetas]}
@@ -39,7 +71,7 @@ JsonResponse:
 Si no se te indica el chart_type explícitamente, infiérelo de la descripción del usuario.
 
 Para widgets con chart_type="filter": vos mismo elegís, a partir del prompt del usuario y de
-la estructura de las pestañas que se te muestra abajo, el nombre EXACTO de la columna que
+la estructura del origen de datos que se te muestra abajo, el nombre EXACTO de la columna que
 este filtro va a controlar. No leas widget.filter_field para esto (puede no existir todavía
 la primera vez que tu código corre) — usá el nombre de columna directamente como literal de
 texto en tu código, ej. active_filters.get("Nivel", None) para obtener el valor actualmente
@@ -47,7 +79,7 @@ seleccionado. Devolvé ese mismo nombre de columna en tu respuesta bajo la clave
 en el shape de arriba, para que el sistema lo guarde automáticamente en el widget.
 
 Para widgets que NO son filter (bar, line, donut, kpi, table): incluí siempre
-`apply_active_filters(df, request, widget)` para que los filtros activos se apliquen
+`get_active_filters(df, request, widget)` para que los filtros activos se apliquen
 automáticamente sobre los datos. Los widgets tipo filter NO deben llamar a
 `apply_active_filters` a menos que el usuario lo pida explícitamente — ellos mismos
 son el filtro, y deben mostrar todas las opciones disponibles sin filtrarse a sí mismos.
@@ -58,6 +90,11 @@ nombra una pestaña explícitamente, se te marca como tal: priorizala salvo que 
 incorrecta para lo que pide) y usá su nombre EXACTO en
 get_cached_df(widget.dashboard, sheet_name='<nombre exacto>'). Especificá siempre sheet_name
 explícitamente, incluso si es la primera pestaña — nunca lo omitas ni lo dejes en None.
+
+Abajo se te muestra la estructura de las tablas disponibles en el origen de datos de este
+tablero: sus columnas y filas de ejemplo. Elegí la(s) tabla(s) que mejor correspondan a lo que
+pide el usuario (si el prompt nombra una tabla explícitamente, se te marca como tal: priorizala
+salvo que sea claramente incorrecta para lo que pide) y usá su nombre EXACTO en la consulta SQL.
 
 Tu respuesta debe ser SIEMPRE la función run(request, widget) completa y final, no un fragmento.
 Si se te muestra el código ya existente de este widget, conservá su lógica salvo lo que el
@@ -138,40 +175,52 @@ def _build_system_instruction(dashboard) -> str:
     return SYSTEM_INSTRUCTION_TEMPLATE.replace("__UTILS_REFERENCE__", build_utils_reference(dashboard))
 
 
-def _detect_sheet_name(prompt: str, titles: list[str]) -> str | None:
-    """Busca, case-insensitive, si el prompt del usuario menciona el nombre de alguna de las
-    pestañas dadas. Retorna el nombre exacto de la pestaña o None."""
+def _detect_table_name(prompt: str, names: list[str]) -> str | None:
+    """Busca, case-insensitive, si el prompt del usuario menciona el nombre exacto de alguna
+    de las tablas/pestañas dadas. Retorna el nombre exacto o None."""
     prompt_lower = prompt.lower()
-    for title in titles:
-        if title.lower() in prompt_lower:
-            return title
+    for name in names:
+        if name.lower() in prompt_lower:
+            return name
     return None
 
 
-def _build_sheets_context(dashboard, prompt: str) -> str:
+def _build_source_context(dashboard, prompt: str) -> str:
     """
-    Arma el bloque de estructura del spreadsheet que se le muestra a Gemini: columnas y unas
-    pocas filas de ejemplo de TODAS las pestañas (cacheado, ver get_cached_sheets_preview), para
-    que pueda elegir la pestaña correcta sin que el usuario tenga que nombrarla explícitamente
-    en su descripción. Si el prompt sí menciona el nombre exacto de una pestaña, se la marca
-    para que Gemini le dé prioridad en caso de ambigüedad.
-    """
-    try:
-        preview = get_cached_sheets_preview(dashboard)
-    except Exception as e:
-        return f"(no se pudo leer la estructura del spreadsheet: {e})"
-    if not preview:
-        return "(el spreadsheet no tiene pestañas)"
+    Arma el bloque de estructura del origen de datos que se le muestra a Gemini: tablas/pestañas
+    disponibles, sus columnas y unas pocas filas de ejemplo, vía DataConnector.list_tables()
+    (funciona igual para Google Sheets y Postgres), para que la IA pueda elegir la tabla correcta
+    sin que el usuario tenga que nombrarla explícitamente en su descripción. Si el prompt sí
+    menciona el nombre exacto de una tabla, se la marca para que Gemini le dé prioridad en caso
+    de ambigüedad.
 
-    hinted = _detect_sheet_name(prompt, list(preview.keys()))
+    El nombre que se muestra por cada tabla es el que arma
+    DataConnector.qualified_table_name(table, alias) -- el mismo esquema de nombres que usa
+    get_query_connection al registrar/adjuntar el origen (ver duckdb_query.py) -- y no el
+    TableInfo.name "crudo" de list_tables(). Mostrar el nombre crudo acá sería un bug: no
+    coincidiría con lo que la conexión DuckDB real expone (ej. mostraría "Destinatarios"
+    cuando la tabla consultable es "google_sheets__Destinatarios"), y Gemini terminaría
+    adivinando el prefijo/esquema en vez de copiarlo tal cual.
+    """
+    connector = dashboard.data_source.get_connector()
+    alias = dashboard.data_source.source_type
+    try:
+        tables = get_cached_tables(dashboard)
+    except Exception as e:
+        return f"(no se pudo leer la estructura del origen de datos: {e})"
+    if not tables:
+        return "(el origen de datos no tiene tablas)"
+
+    hinted = _detect_table_name(prompt, [t.name for t in tables])
 
     lines = []
-    for title, info in preview.items():
-        marker = " (mencionada explícitamente por el usuario)" if title == hinted else ""
-        lines.append(f"Pestaña '{title}'{marker}")
-        if info["columns"]:
-            lines.append(f"  Columnas: {info['columns']}")
-            lines.append(f"  Filas de ejemplo: {info['sample_rows']}")
+    for table in tables:
+        qualified_name = connector.qualified_table_name(table, alias)
+        marker = " (mencionada explícitamente por el usuario)" if table.name == hinted else ""
+        lines.append(f"Tabla '{qualified_name}'{marker}")
+        if table.columns:
+            lines.append(f"  Columnas: {table.columns}")
+            lines.append(f"  Filas de ejemplo: {table.sample_rows}")
         else:
             lines.append("  (vacía)")
     return "\n".join(lines)
@@ -217,7 +266,7 @@ def generate_widget_code(prompt: str, dashboard, chart_type: str = "", existing_
     sin perder el resto de la lógica. Retorna el código completo, listo para guardar en
     WidgetInstance.code.
     """
-    sheets_context = _build_sheets_context(dashboard, prompt)
+    source_context = _build_source_context(dashboard, prompt)
 
     chart_type_line = f"Tipo de widget (chart_type): {chart_type}\n\n" if chart_type else ""
     existing_code_block = (
@@ -228,8 +277,8 @@ def generate_widget_code(prompt: str, dashboard, chart_type: str = "", existing_
     full_prompt = (
         f"{chart_type_line}"
         f"{existing_code_block}"
-        f"Estructura de las pestañas del spreadsheet de este tablero:\n"
-        f"{sheets_context}\n\n"
+        f"Estructura de las tablas disponibles en el origen de datos de este tablero:\n"
+        f"{source_context}\n\n"
         f"Descripción del usuario:\n{prompt}"
     )
 
@@ -245,7 +294,7 @@ def generate_custom_util(prompt: str, dashboard, existing_util: dict | None = No
     Retorna un dict con name/signature/category/description/source_code, listo para revisar
     y guardar en un DashboardUtilFunction.
     """
-    sheets_context = _build_sheets_context(dashboard, prompt)
+    source_context = _build_source_context(dashboard, prompt)
     utils_reference = build_utils_reference(dashboard)
 
     existing_block = ""
@@ -260,8 +309,8 @@ def generate_custom_util(prompt: str, dashboard, existing_util: dict | None = No
         f"Utilidades ya disponibles en este tablero (no las redefinas, ya las podés llamar):\n"
         f"{utils_reference}\n\n"
         f"{existing_block}"
-        f"Estructura de las pestañas del spreadsheet de este tablero:\n"
-        f"{sheets_context}\n\n"
+        f"Estructura de las tablas disponibles en el origen de datos de este tablero:\n"
+        f"{source_context}\n\n"
         f"Descripción del usuario:\n{prompt}"
     )
 

@@ -77,6 +77,9 @@ def fetch_sheet_as_dataframe(source_url: str, sheet_name: str | None = None) -> 
 
     records = worksheet.get_all_records()
     if not records:
+        header = worksheet.row_values(1)
+        if header:
+            return pd.DataFrame(columns=header)
         return pd.DataFrame()
 
     df = pd.DataFrame(records)

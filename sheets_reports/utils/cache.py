@@ -3,7 +3,7 @@ import time
 import pandas as pd
 from django.core.cache import cache
 
-from .google_sheets import fetch_sheet_as_dataframe, fetch_sheets_preview
+from sheets_reports.connectors.base import DataFrameBackedConnector
 from .registry import util
 
 CACHE_TIMEOUT = 300  # 5 minutos
@@ -11,7 +11,7 @@ LOCK_TIMEOUT = 30  # segundos máximo que puede tardar un fetch a Google Sheets
 LOCK_POLL_INTERVAL = 0.2
 
 
-def _fetch_with_lock(cache_key: str, timeout: int, fetch_fn):
+def fetch_with_lock(cache_key: str, timeout: int, fetch_fn):
     """
     Obtiene `cache_key` de cache, o lo genera con `fetch_fn()` si no existe.
     Usa un lock (vía `cache.add`, atómico) para que, cuando varias requests piden
@@ -46,27 +46,74 @@ def _fetch_with_lock(cache_key: str, timeout: int, fetch_fn):
     return value
 
 
+def _dataframe_connector(dashboard) -> DataFrameBackedConnector:
+    """Resuelve el DataConnector del tablero y exige que sea DataFrame-backed (ej. Google
+    Sheets) -- es el único tipo de origen que get_cached_df/get_cached_sheets_preview saben
+    servir. Un origen SQL nativo (ej. Postgres) no tiene "DataFrame completo" que traer: se
+    consulta con SQL vía get_query_connection (ver utils/duckdb_query.py)."""
+    if dashboard.data_source_id is None:
+        raise ValueError(f"El tablero {dashboard.id} no tiene un origen de datos configurado (data_source).")
+    connector = dashboard.data_source.get_connector()
+    if not isinstance(connector, DataFrameBackedConnector):
+        raise TypeError(
+            f"get_cached_df/get_cached_sheets_preview requieren un origen basado en DataFrame "
+            f"(ej. Google Sheets); el origen de este tablero es de tipo "
+            f"'{dashboard.data_source.source_type}'. Usá get_query_connection(widget.dashboard) "
+            f"para consultarlo con SQL."
+        )
+    return connector
+
+
 @util(
     category="Datos",
     description=(
-        "Retorna el DataFrame de una pestaña del Google Sheet del tablero (cacheado). "
-        "sheet_name=None usa la primera hoja; se puede llamar más de una vez para cruzar "
-        "datos de varias pestañas del mismo spreadsheet."
+        "[LEGACY] Retorna el DataFrame de una pestaña/tabla del origen de datos del tablero "
+        "(cacheado). Existe solo para no romper widgets ya guardados de antes de que hubiera "
+        "SQL genérico -- en código nuevo usá siempre get_query_connection en su lugar, incluso "
+        "para orígenes Google Sheets. Solo sirve para orígenes basados en DataFrame; contra un "
+        "origen SQL nativo (ej. Postgres) directamente falla."
     ),
-    example="df = get_cached_df(widget.dashboard, sheet_name='Respuestas de formulario 1')",
+    example="df = get_cached_df(widget.dashboard, sheet_name='Respuestas de formulario 1')  # legacy, preferí get_query_connection",
 )
 def get_cached_df(dashboard, sheet_name: str | None = None) -> pd.DataFrame:
     cache_key = f"sheet_df_{dashboard.id}_{(sheet_name or '__default__').replace(' ', '_')}"
-    return _fetch_with_lock(
-        cache_key, CACHE_TIMEOUT, lambda: fetch_sheet_as_dataframe(dashboard.source_url, sheet_name)
-    )
+    connector = _dataframe_connector(dashboard)
+    return fetch_with_lock(cache_key, CACHE_TIMEOUT, lambda: connector.fetch_dataframe(sheet_name))
 
 
 def get_cached_sheets_preview(dashboard, n_rows: int = 3) -> dict:
-    """Columnas + primeras `n_rows` filas de cada pestaña del spreadsheet del tablero, cacheado
-    (ver fetch_sheets_preview). A diferencia de get_cached_df, no trae cada pestaña completa:
-    solo lo necesario para que Gemini elija la pestaña correcta al generar código."""
+    """Columnas + primeras `n_rows` filas de cada pestaña del origen de datos del tablero,
+    cacheado. A diferencia de get_cached_df, no trae cada pestaña completa: solo lo necesario
+    para que Gemini elija la pestaña correcta al generar código. Solo sirve para orígenes
+    DataFrame-backed; ver get_cached_tables() para el equivalente genérico (cualquier tipo de
+    origen) que usa generate_widget_ia._build_source_context."""
     cache_key = f"sheets_preview_{dashboard.id}_{n_rows}"
-    return _fetch_with_lock(
-        cache_key, CACHE_TIMEOUT, lambda: fetch_sheets_preview(dashboard.source_url, n_rows)
-    )
+    connector = _dataframe_connector(dashboard)
+
+    def _fetch():
+        return {
+            table.name: {"columns": table.columns, "sample_rows": table.sample_rows[:n_rows]}
+            for table in connector.list_tables()
+        }
+
+    return fetch_with_lock(cache_key, CACHE_TIMEOUT, _fetch)
+
+
+def get_cached_tables(dashboard):
+    """
+    Tablas/pestañas del origen de datos del tablero, con columnas y filas de ejemplo
+    (cacheado, TTL corto). A diferencia de get_cached_sheets_preview, sirve para cualquier
+    tipo de origen (no solo DataFrame-backed) -- es lo que usa
+    generate_widget_ia._build_source_context para mostrarle a Gemini la estructura disponible.
+
+    Sin este cacheo, cada llamada repite la introspección completa del origen (para Sheets,
+    llamadas a la API de Google; para Postgres, varias consultas al servidor) -- costoso en
+    generaciones que la piden muchas veces seguidas, ej. una vez por cada widget de un tablero
+    generado de punta a punta (generate_dashboard_ia.generate_board_from_prompt), al punto de
+    agotar la cuota de lectura de la API de Sheets si el tablero tiene varios widgets.
+    """
+    if dashboard.data_source_id is None:
+        raise ValueError(f"El tablero {dashboard.id} no tiene un origen de datos configurado (data_source).")
+    cache_key = f"source_tables_{dashboard.id}"
+    connector = dashboard.data_source.get_connector()
+    return fetch_with_lock(cache_key, CACHE_TIMEOUT, connector.list_tables)

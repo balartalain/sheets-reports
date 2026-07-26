@@ -5,13 +5,14 @@ from google import genai
 
 from sheets_reports.utils.generate_widget_ia import (
     DEFAULT_MODEL,
-    _build_sheets_context,
+    _build_source_context,
     generate_widget_code,
 )
 
 BOARD_PLANNER_SYSTEM_INSTRUCTION = """\
 Eres un arquitecto de dashboards. Tu tarea es diseñar la estructura completa de un tablero de
-reportes a partir de una descripción del usuario y la estructura de las hojas de cálculo disponibles.
+reportes a partir de una descripción del usuario y la estructura de las tablas disponibles en
+su origen de datos.
 
 Los únicos tipos de widget disponibles son:
 - bar: Gráfico de Barras — para comparar valores entre categorías (ej. ventas por región).
@@ -46,7 +47,7 @@ Debes responder ÚNICAMENTE con un objeto JSON (sin markdown, sin ```) que conte
   - "chart_type": uno de los 6 tipos listados arriba.
   - "order": índice numérico empezando desde 0 (define el orden en el lienzo).
   - "prompt": descripción detallada para que otro sistema genere el código Python
-    de este widget. Incluí: qué hoja/pestaña usar (por su nombre exacto), qué columnas,
+    de este widget. Incluí: qué tabla/pestaña usar (por su nombre exacto), qué columnas,
     cómo agrupar, qué calcular. Sé específico para que un desarrollador (o una IA) pueda
     escribir la función run() sin ambigüedad.
   - "properties": objeto con:
@@ -54,8 +55,8 @@ Debes responder ÚNICAMENTE con un objeto JSON (sin markdown, sin ```) que conte
     - "height": alto en píxels (entero, ej. 300).
     - "startCol": cadena vacía "" (layout fluido).
 
-A continuación se te muestra la estructura de las pestañas del spreadsheet de este tablero.
-Seleccioná la(s) pestaña(s) más relevantes para cada widget.
+A continuación se te muestra la estructura de las tablas disponibles en el origen de datos
+de este tablero. Seleccioná la(s) tabla(s) más relevantes para cada widget.
 """
 
 BOARD_PLANNER_RESPONSE_SCHEMA = {
@@ -100,10 +101,10 @@ def generate_board_plan(user_prompt: str, dashboard) -> dict:
     NO genera código Python todavía — solo el plan arquitectónico.
     Retorna un dict con "title" y "widgets".
     """
-    sheets_context = _build_sheets_context(dashboard, user_prompt)
+    source_context = _build_source_context(dashboard, user_prompt)
     full_prompt = (
-        f"Estructura de las pestañas del spreadsheet:\n"
-        f"{sheets_context}\n\n"
+        f"Estructura de las tablas disponibles en el origen de datos:\n"
+        f"{source_context}\n\n"
         f"Descripción del usuario:\n{user_prompt}"
     )
 
@@ -132,11 +133,12 @@ def generate_board_plan(user_prompt: str, dashboard) -> dict:
     return plan
 
 
-def generate_board_from_prompt(user_prompt: str, source_url: str, user):
+def generate_board_from_prompt(user_prompt: str, data_source, user):
     """
-    Orquestador completo: crea un Dashboard, pide a Gemini el plan, genera el código de
-    cada widget y persiste todo. Es un generador que va emitiendo dicts de progreso por
-    cada etapa (pensado para alimentar un StreamingHttpResponse en
+    Orquestador completo: crea un Dashboard apuntando a `data_source` (una instancia de
+    sheets_reports.models.DataSource, ya creada por el llamador), pide a Gemini el plan,
+    genera el código de cada widget y persiste todo. Es un generador que va emitiendo dicts
+    de progreso por cada etapa (pensado para alimentar un StreamingHttpResponse en
     views_dashboard.generate_dashboard_from_prompt); el último dict tiene
     event="done" y trae el Dashboard ya armado bajo la clave "dashboard".
     Si algo falla, emite event="error" y no deja registros huérfanos (borra el Dashboard).
@@ -146,7 +148,7 @@ def generate_board_from_prompt(user_prompt: str, source_url: str, user):
 
     dashboard = Dashboard.objects.create(
         title="Generando…",
-        source_url=source_url,
+        data_source=data_source,
         user=user,
     )
 
