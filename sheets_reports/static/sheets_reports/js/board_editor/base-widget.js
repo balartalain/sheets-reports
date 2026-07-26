@@ -1,6 +1,6 @@
 (function () {
   const MAX_CONCURRENT_FETCHES = 5;
-  const FETCH_TIMEOUT_MS = 15000;
+  const FETCH_TIMEOUT_MS = 30000;
   let activeFetches = 0;
   const fetchQueue = [];
 

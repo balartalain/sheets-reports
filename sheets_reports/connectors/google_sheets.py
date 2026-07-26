@@ -10,7 +10,7 @@ from sheets_reports.connectors.base import (
     TableInfo,
 )
 from sheets_reports.connectors.registry import connector
-from sheets_reports.utils.cache import CACHE_TIMEOUT, fetch_with_lock
+from sheets_reports.utils.cache import CACHE_TIMEOUT, fetch_pickle_with_lock, fetch_with_lock
 from sheets_reports.utils.google_sheets import fetch_sheet_as_dataframe, fetch_sheets_preview
 
 
@@ -60,16 +60,12 @@ class GoogleSheetsConnector(DataFrameBackedConnector):
         return fetch_with_lock(self._cache_key("tables"), CACHE_TIMEOUT, _fetch)
 
     def fetch_dataframe(self, table_name: str | None = None):
-        # Cacheado: register() (llamado por get_query_connection en CADA ejecución de un
-        # widget) trae, sin esto, el DataFrame completo de TODAS las pestañas del spreadsheet
-        # desde cero cada vez -- con varias pestañas, alcanza la cuota de lectura de la API de
-        # Sheets en minutos. Mismo mecanismo de lock+TTL que ya usaba get_cached_df, solo que
-        # acá vive detrás del conector para que también cubra el camino de get_query_connection
-        # (no solo el de get_cached_df).
+        # Cacheado en archivos pickle (disco, no DatabaseCache) para que la posterior
+        # inicialización de la base DuckDB persistente (get_query_connection) sea rápida.
         def _fetch():
             try:
                 return fetch_sheet_as_dataframe(self._cfg.source_url, sheet_name=table_name)
             except Exception as e:
                 raise DataSourceConnectionError(str(e)) from e
 
-        return fetch_with_lock(self._cache_key("df", table_name), CACHE_TIMEOUT, _fetch)
+        return fetch_pickle_with_lock(self._cache_key("df", table_name), CACHE_TIMEOUT, _fetch)

@@ -198,6 +198,8 @@ def execute_widget_code(code: str, request, widget) -> JsonResponse:
         )
 
     try:
+        f = get_active_filters(request, widget)
+        print(f"Filtros activos para el widget {widget.id}: {f}")
         return run(request, widget)
     except Exception as e:
         logger.exception("Error al ejecutar el código del widget %s", widget.id)
