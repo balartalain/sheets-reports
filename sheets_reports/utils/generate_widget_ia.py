@@ -46,6 +46,12 @@ texto en tu código, ej. active_filters.get("Nivel", None) para obtener el valor
 seleccionado. Devolvé ese mismo nombre de columna en tu respuesta bajo la clave "field", como
 en el shape de arriba, para que el sistema lo guarde automáticamente en el widget.
 
+Para widgets que NO son filter (bar, line, donut, kpi, table): incluí siempre
+`apply_active_filters(df, request, widget)` para que los filtros activos se apliquen
+automáticamente sobre los datos. Los widgets tipo filter NO deben llamar a
+`apply_active_filters` a menos que el usuario lo pida explícitamente — ellos mismos
+son el filtro, y deben mostrar todas las opciones disponibles sin filtrarse a sí mismos.
+
 Abajo se te muestran las columnas y filas de ejemplo de TODAS las pestañas del spreadsheet de
 este tablero. Elegí la pestaña que mejor corresponda a lo que pide el usuario (si el prompt
 nombra una pestaña explícitamente, se te marca como tal: priorizala salvo que sea claramente
