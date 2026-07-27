@@ -1,4 +1,18 @@
 (function () {
+    const formattersMap = {
+      "text": { hozAlign: "left", formatter: "plaintext" },
+      "currency": { hozAlign: "right", formatter: "money", formatterParams: { precision: 2, thousand: "," } },
+      "percent": {
+          hozAlign: "right",
+          formatter: (cell) => cell.getValue() != null ? Number(cell.getValue()).toFixed(2) + "%" : "-"
+      },
+      "progress": {
+          formatter: "progress",
+          formatterParams: { min: 0, max: 100, color: ["#ef4444", "#f59e0b", "#10b981"],
+            legend: function(value) { return value + "%"; }
+          }
+      }
+  };
   class TableWidget extends BaseWidget {
     static type = 'table';
     static palette = {
@@ -46,10 +60,12 @@
       this.showPagination = raw.showPagination ?? true;
       this.boldLastRow = raw.boldLastRow ?? false;
       this.columnOrder = raw.columnOrder ?? null;
+      this.formattersMap = raw.formattersMap ?? {};
     }
 
     getProperties() {
-      return { ...super.getProperties(), pageSize: this.pageSize, showPagination: this.showPagination, boldLastRow: this.boldLastRow, columnOrder: this.columnOrder };
+      return { ...super.getProperties(), pageSize: this.pageSize, showPagination: this.showPagination,
+        boldLastRow: this.boldLastRow, columnOrder: this.columnOrder, formattersMap: this.formattersMap };
     }
 
     buildElement() {
@@ -57,11 +73,35 @@
     }
 
     buildReadOnlyElement() {
+      this._readOnly = true;
       const el = super.buildReadOnlyElement();
       el.querySelector('.actions-slot').innerHTML = this.downloadButtonHTML('Descargar CSV');
       return el;
     }
+    applyFormatter(fieldName, tipoFormato) {
+      let cols = this._table.getColumnDefinitions();
 
+      cols = cols.map(col => {
+          if (col.field === fieldName) {
+              const config = formattersMap[tipoFormato] || formattersMap["text"];
+              return { ...col, ...config }; // Mantiene las propiedades anteriores y actualiza el formato
+          }
+          return col;
+      });
+      this.formattersMap[fieldName] = tipoFormato; // Guarda el formato aplicado para persistencia
+      this._table.setColumns(cols); // Re-renderiza las columnas instantáneamente
+      this._dirty = true;
+      const store = window.Alpine && Alpine.store('dashboard');
+      if (store && typeof store._saveWidget === 'function') {
+        store._saveWidget(this);
+      }
+    }
+    menuFormatter = [
+      { label: "📄 Texto", action: (e, column) => this.applyFormatter(column.getField(), "text") },
+      { label: "💲 Moneda / Número", action: (e, column) => this.applyFormatter(column.getField(), "currency") },
+      { label: "📊 Porcentaje (%)", action: (e, column) => this.applyFormatter(column.getField(), "percent") },
+      { label: "🔋 Barra de Progreso", action: (e, column) => this.applyFormatter(column.getField(), "progress") }
+    ];
     renderContent(container, data) {
       const payload = data || this.constructor.mockData();
       if (this._table) {
@@ -77,6 +117,12 @@
         const remaining = columns.filter(c => !this.columnOrder.includes(c.field));
         columns = [...ordered, ...remaining];
       }
+      columns = columns.map(col => {
+        const formatterConfig = formattersMap[this.formattersMap[col.field]] || formattersMap["text"];
+        const result = { ...col, ...formatterConfig };
+        if (!this._readOnly) result.headerMenu = this.menuFormatter;
+        return result;
+      });
       this._table = new Tabulator(container, {
         data: payload.rows || [],
         movableColumns: true,
