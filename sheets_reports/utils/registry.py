@@ -47,9 +47,8 @@ def ensure_loaded():
     import acá para garantizar que UTILS_REGISTRY esté completo. Import diferido (no al
     tope del archivo) para evitar un ciclo: esos módulos importan `util` desde este mismo
     archivo."""
-    import sheets_reports.utils.cache  # noqa: F401 (registra get_cached_df)
     import sheets_reports.utils.chart_helpers  # noqa: F401 (registra _truncar)
-    import sheets_reports.utils.widget_dispatcher  # noqa: F401 (registra apply_active_filters, get_active_filters)
+    import sheets_reports.utils.widget_dispatcher  # noqa: F401 (registra get_active_filters)
     import sheets_reports.utils.duckdb_query  # noqa: F401 (registra get_query_connection)
 
 
