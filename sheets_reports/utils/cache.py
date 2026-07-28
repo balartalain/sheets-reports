@@ -4,7 +4,6 @@ import pandas as pd
 from django.core.cache import cache
 
 from sheets_reports.connectors.base import DataFrameBackedConnector
-from .registry import util
 
 CACHE_TIMEOUT = 300  # 5 minutos
 LOCK_TIMEOUT = 30  # segundos máximo que puede tardar un fetch a Google Sheets (protegido por rate limiter global)
@@ -63,19 +62,6 @@ def _dataframe_connector(dashboard) -> DataFrameBackedConnector:
     return connector
 
 
-@util(
-    category="Datos",
-    description=(
-        "[LEGACY] Retorna el DataFrame de una pestaña/tabla del origen de datos del tablero, "
-        "leído directo de la tabla ya cargada en la conexión DuckDB persistente del tablero "
-        "(ver get_query_connection) -- no dispara ninguna llamada a la API. Existe solo para "
-        "no romper widgets ya guardados de antes de que hubiera SQL genérico -- en código "
-        "nuevo usá siempre get_query_connection en su lugar, incluso para orígenes Google "
-        "Sheets. Solo sirve para orígenes basados en DataFrame; contra un origen SQL nativo "
-        "(ej. Postgres) directamente falla."
-    ),
-    example="df = get_cached_df(widget.dashboard, sheet_name='Respuestas de formulario 1')  # legacy, preferí get_query_connection",
-)
 def get_cached_df(dashboard, sheet_name: str | None = None) -> pd.DataFrame:
     from sheets_reports.utils.duckdb_query import get_query_connection
 

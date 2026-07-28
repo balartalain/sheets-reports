@@ -112,15 +112,6 @@ def get_active_filters(request, widget) -> dict:
     return filters
 
 
-@util(
-    category="Filtros",
-    description=(
-        "Aplica los filtros activos del tablero a un DataFrame, comparando cada filtro contra "
-        "la columna del mismo nombre (si existe). Filtros sin valor, o cuyo nombre no coincide "
-        "con ninguna columna, se ignoran."
-    ),
-    example="df = apply_active_filters(df, request, widget)",
-)
 def apply_active_filters(df, request, widget):
     if df.empty:
         return df
@@ -138,22 +129,23 @@ class CustomUtilError(Exception):
 def _build_exec_namespace(dashboard=None):
     """
     Contexto disponible para el código Python guardado en widget.code (generado por IA).
-    Las utilidades del sistema se toman todas del registro (sheets_reports.utils.registry),
-    en vez de importarlas y listarlas una por una acá: decorar una función con @util ya
-    alcanza para que quede disponible en el exec(), sin tocar este archivo.
-
+    Las utilidades del sistema se toman del registro (sheets_reports.utils.registry), más
+    `get_cached_df` y `apply_active_filters` (incluidas directamente para widgets legacy,
+    sin pasar por el registro para que no aparezcan en el prompt de generación de código).
     Las funciones utilitarias personalizadas del tablero (DashboardUtilFunction) se ejecutan
-    en este mismo namespace antes de devolverlo, para que queden disponibles cuando se
-    ejecute el código propio del widget a continuación.
+    en este mismo namespace antes de devolverlo.
     """
     import datetime
     import pandas as pd
+    from sheets_reports.utils.cache import get_cached_df
 
     namespace = {
         "__builtins__": SAFE_BUILTINS,
         "pd": pd,
         "datetime": datetime,
         "JsonResponse": _widget_json_response,
+        "get_cached_df": get_cached_df,
+        "apply_active_filters": apply_active_filters,
         **get_system_namespace(),
     }
 
@@ -230,14 +222,13 @@ def dispatch_widget(request, widget_id: int) -> JsonResponse:
     """
     Obtiene el widget y ejecuta su código guardado en `widget.code`.
 
-    Convención: el código recibe (request, widget) y es responsable de cargar
-    su(s) propio(s) DataFrame llamando a `get_cached_df(widget.dashboard, sheet_name)`
-    (sheet_name=None usa la primera hoja). Así una misma función puede leer más de
-    una pestaña del spreadsheet del tablero y cruzarlas entre sí.
+    Convención: el código recibe (request, widget) y usa
+    `get_query_connection(widget.dashboard)` para obtener datos vía SQL.
+    Para widgets legacy que usan DataFrames: `get_cached_df` y `apply_active_filters`
+    también están disponibles en el namespace.
 
-    Convención para filtros: el código puede aplicar los filtros activos
-    de su tablero al DataFrame con `apply_active_filters(df, request, widget)`
-    (o leerlos directamente con `get_active_filters(request, widget)`).
+    Convención para filtros: usar `get_active_filters(request, widget)` para leer los
+    filtros activos y pasarlos como parámetros SQL.
     """
     try:
         widget = WidgetInstance.objects.select_related("dashboard").get(id=widget_id)

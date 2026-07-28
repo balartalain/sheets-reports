@@ -37,14 +37,10 @@ consultarlas es siempre la misma):
 
     con = get_query_connection(widget.dashboard)
 
-Usá siempre el nombre EXACTO de tabla que se muestra abajo en la estructura del origen de
-datos (según el tipo de origen puede ser, por ejemplo, `google_sheets__Ventas` o
-`postgres.public.ventas` — nunca lo inventes ni lo adivines, copialo tal cual aparece abajo).
-Para pasar valores dinámicos a la consulta (ej. un filtro activo), usá parámetros en vez de
-interpolar el string a mano: `con.execute("SELECT * FROM tabla WHERE region = ?", [valor])`.
-No generes `INSERT`/`UPDATE`/`DELETE` ni DDL: algunos orígenes son de solo lectura y esas
-sentencias van a fallar. No uses `get_cached_df` en código nuevo — existe solo por
-compatibilidad con widgets ya guardados de antes de que hubiera SQL genérico.
+Usá el nombre EXACTO de tabla de abajo (`google_sheets__Ventas`, `postgres.public.ventas`)
+— nunca lo inventes ni adivines. Usá parámetros en vez de interpolar:
+`con.execute("SELECT * FROM tabla WHERE region = ?", [valor])`.
+No generes INSERT/UPDATE/DELETE ni DDL (orígenes de solo lectura).
 
 TODO el procesamiento de datos (conversiones de tipo, filtrado de nulos, agregaciones,
 ordenamiento, formateo de fechas, etc.) debés hacerlo DENTRO de la consulta SQL, no con
@@ -85,13 +81,6 @@ parámetros en tu consulta SQL, ej.:
 Los widgets tipo filter NO deben filtrarse a sí mismos — deben mostrar todas las opciones
 disponibles sin aplicar ningún filtro. Usá `get_active_filters` solo para preseleccionar
 el valor actual: `selected = active_filters.get("<campo>", None)`.
-
-Abajo se te muestran las columnas y filas de ejemplo de TODAS las pestañas del spreadsheet de
-este tablero. Elegí la pestaña que mejor corresponda a lo que pide el usuario (si el prompt
-nombra una pestaña explícitamente, se te marca como tal: priorizala salvo que sea claramente
-incorrecta para lo que pide) y usá su nombre EXACTO en
-get_cached_df(widget.dashboard, sheet_name='<nombre exacto>'). Especificá siempre sheet_name
-explícitamente, incluso si es la primera pestaña — nunca lo omitas ni lo dejes en None.
 
 Abajo se te muestra la estructura de las tablas disponibles en el origen de datos de este
 tablero: sus columnas y filas de ejemplo. Elegí la(s) tabla(s) que mejor correspondan a lo que
