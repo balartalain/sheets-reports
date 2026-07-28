@@ -8,8 +8,10 @@
       },
       "progress": {
           formatter: "progress",
-          formatterParams: { min: 0, max: 100, color: ["#ef4444", "#f59e0b", "#10b981"],
-            legend: function(value) { return value + "%"; }
+          formatterParams: {
+            min: 0, max: 100,
+            color: ["#ef4444", "#f59e0b", "#10b981"],
+            legend: function(value) { return Number(value).toFixed(2) + "%"; }
           }
       }
   };
