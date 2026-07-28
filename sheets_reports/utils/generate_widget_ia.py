@@ -78,11 +78,13 @@ texto en tu código, ej. active_filters.get("Nivel", None) para obtener el valor
 seleccionado. Devolvé ese mismo nombre de columna en tu respuesta bajo la clave "field", como
 en el shape de arriba, para que el sistema lo guarde automáticamente en el widget.
 
-Para widgets que NO son filter (bar, line, donut, kpi, table): incluí siempre
-`get_active_filters(df, request, widget)` para que los filtros activos se apliquen
-automáticamente sobre los datos. Los widgets tipo filter NO deben llamar a
-`apply_active_filters` a menos que el usuario lo pida explícitamente — ellos mismos
-son el filtro, y deben mostrar todas las opciones disponibles sin filtrarse a sí mismos.
+Para widgets que NO son filter (bar, line, donut, kpi, table): obtené los filtros activos
+con `active_filters = get_active_filters(request, widget)` y usá sus valores como
+parámetros en tu consulta SQL, ej.:
+    con.execute("SELECT * FROM tabla WHERE region = ?", [active_filters.get("region")])
+Los widgets tipo filter NO deben filtrarse a sí mismos — deben mostrar todas las opciones
+disponibles sin aplicar ningún filtro. Usá `get_active_filters` solo para preseleccionar
+el valor actual: `selected = active_filters.get("<campo>", None)`.
 
 Abajo se te muestran las columnas y filas de ejemplo de TODAS las pestañas del spreadsheet de
 este tablero. Elegí la pestaña que mejor corresponda a lo que pide el usuario (si el prompt
