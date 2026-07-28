@@ -1,7 +1,4 @@
-import os
-import pickle
 import time
-from hashlib import md5
 
 import pandas as pd
 from django.core.cache import cache
@@ -12,7 +9,6 @@ from .registry import util
 CACHE_TIMEOUT = 300  # 5 minutos
 LOCK_TIMEOUT = 30  # segundos máximo que puede tardar un fetch a Google Sheets (protegido por rate limiter global)
 LOCK_POLL_INTERVAL = 0.2
-PICKLE_CACHE_DIR = "/tmp/sheets_cache"
 
 
 def fetch_with_lock(cache_key: str, timeout: int, fetch_fn):
@@ -49,52 +45,6 @@ def fetch_with_lock(cache_key: str, timeout: int, fetch_fn):
     return value
 
 
-def _pickle_path(cache_key: str) -> str:
-    return os.path.join(PICKLE_CACHE_DIR, f"{md5(cache_key.encode()).hexdigest()}.pkl")
-
-
-def fetch_pickle_with_lock(cache_key: str, timeout: int, fetch_fn):
-    """
-    Como fetch_with_lock pero almacena el valor como archivo pickle en disco
-    (en vez de DatabaseCache), mucho más rápido para DataFrames grandes.
-    Los locks siguen usando Django Cache (livianos).
-    """
-    pkl = _pickle_path(cache_key)
-
-    if os.path.exists(pkl):
-        if os.path.getmtime(pkl) + timeout > time.time():
-            with open(pkl, "rb") as f:
-                return pickle.load(f)
-        try:
-            os.remove(pkl)
-        except FileNotFoundError:
-            pass  # otro worker ya lo eliminó
-
-    lock_key = f"{cache_key}_lock"
-    if cache.add(lock_key, True, LOCK_TIMEOUT):
-        try:
-            value = fetch_fn()
-            os.makedirs(PICKLE_CACHE_DIR, exist_ok=True)
-            with open(pkl, "wb") as f:
-                pickle.dump(value, f)
-            return value
-        finally:
-            cache.delete(lock_key)
-
-    deadline = time.monotonic() + LOCK_TIMEOUT
-    while time.monotonic() < deadline:
-        time.sleep(LOCK_POLL_INTERVAL)
-        if os.path.exists(pkl) and os.path.getmtime(pkl) + timeout > time.time():
-            with open(pkl, "rb") as f:
-                return pickle.load(f)
-
-    value = fetch_fn()
-    os.makedirs(PICKLE_CACHE_DIR, exist_ok=True)
-    with open(pkl, "wb") as f:
-        pickle.dump(value, f)
-    return value
-
-
 def _dataframe_connector(dashboard) -> DataFrameBackedConnector:
     """Resuelve el DataConnector del tablero y exige que sea DataFrame-backed (ej. Google
     Sheets) -- es el único tipo de origen que get_cached_df/get_cached_sheets_preview saben
@@ -116,18 +66,40 @@ def _dataframe_connector(dashboard) -> DataFrameBackedConnector:
 @util(
     category="Datos",
     description=(
-        "[LEGACY] Retorna el DataFrame de una pestaña/tabla del origen de datos del tablero "
-        "(cacheado). Existe solo para no romper widgets ya guardados de antes de que hubiera "
-        "SQL genérico -- en código nuevo usá siempre get_query_connection en su lugar, incluso "
-        "para orígenes Google Sheets. Solo sirve para orígenes basados en DataFrame; contra un "
-        "origen SQL nativo (ej. Postgres) directamente falla."
+        "[LEGACY] Retorna el DataFrame de una pestaña/tabla del origen de datos del tablero, "
+        "leído directo de la tabla ya cargada en la conexión DuckDB persistente del tablero "
+        "(ver get_query_connection) -- no dispara ninguna llamada a la API. Existe solo para "
+        "no romper widgets ya guardados de antes de que hubiera SQL genérico -- en código "
+        "nuevo usá siempre get_query_connection en su lugar, incluso para orígenes Google "
+        "Sheets. Solo sirve para orígenes basados en DataFrame; contra un origen SQL nativo "
+        "(ej. Postgres) directamente falla."
     ),
     example="df = get_cached_df(widget.dashboard, sheet_name='Respuestas de formulario 1')  # legacy, preferí get_query_connection",
 )
 def get_cached_df(dashboard, sheet_name: str | None = None) -> pd.DataFrame:
-    cache_key = f"sheet_df_{dashboard.id}_{(sheet_name or '__default__').replace(' ', '_')}"
+    from sheets_reports.utils.duckdb_query import get_query_connection
+
     connector = _dataframe_connector(dashboard)
-    return fetch_with_lock(cache_key, CACHE_TIMEOUT, lambda: connector.fetch_dataframe(sheet_name))
+    tables = connector.list_tables()
+    if not tables:
+        return pd.DataFrame()
+
+    if sheet_name is None:
+        table = tables[0]
+    else:
+        table = next((t for t in tables if t.name == sheet_name), None)
+        if table is None:
+            raise ValueError(
+                f"La pestaña '{sheet_name}' no existe en el origen del tablero {dashboard.id}."
+            )
+
+    alias = dashboard.data_source.source_type
+    qualified_name = connector.qualified_table_name(table, alias)
+    con = get_query_connection(dashboard)
+    try:
+        return con.execute(f'SELECT * FROM "{qualified_name}"').df()
+    finally:
+        con.close()
 
 
 def get_cached_sheets_preview(dashboard, n_rows: int = 3) -> dict:

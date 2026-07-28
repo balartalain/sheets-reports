@@ -1,11 +1,15 @@
 """
-Lenguaje de consulta genérico para widgets: conexión DuckDB persistente por dashboard
-(archivo en disco), con las tablas del origen de datos ya registradas (Sheets, vía
-duckdb.register de un DataFrame) o adjuntadas (Postgres, vía ATTACH).
+Lenguaje de consulta genérico para widgets: conexión DuckDB persistente por DataSource
+(archivo en disco, uno por origen -- no por dashboard, para que varios dashboards que
+apunten a la misma hoja/DB compartan el mismo archivo en vez de duplicar la carga), con
+las tablas del origen de datos ya cargadas por completo (Sheets, vía CREATE TABLE + INSERT
+de cada DataFrame) o adjuntadas (Postgres, vía ATTACH).
 
-La base de datos se inicializa una sola vez y se reusa entre widgets e incluso entre
-workers/gunicorn (archivo compartido). Cuando expira el TTL del caché de DataFrames, el
-archivo .db se invalida y se reconstruye desde los pickle de la siguiente solicitud.
+La base de datos se inicializa una sola vez y se reusa entre widgets, entre dashboards que
+comparten origen, e incluso entre workers/gunicorn (archivo compartido). Cuando expira el
+TTL del caché de DataFrames, el archivo .db se invalida y se reconstruye por completo en la
+siguiente solicitud -- llenando TODAS las tablas de una vez (connector.fetch_all_dataframes),
+sin escanear el código de cada widget para adivinar cuáles hacen falta.
 """
 import os
 import time
@@ -18,13 +22,12 @@ from .registry import util
 from sheets_reports.connectors.base import DataFrameBackedConnector
 
 _DB_DIR = "/tmp"
-_INIT_LOCK_TIMEOUT = 30  # init ahora solo crea esquemas vacíos, sin fetch de datos
+_INIT_LOCK_TIMEOUT = 30
 _SENTINEL = "__initialized__"
-_META = "__sheets_meta__"  # mapea qualified_name → nombre original de pestaña
 
 
-def _db_path(dashboard_id: int) -> str:
-    return os.path.join(_DB_DIR, f"duckdb_{dashboard_id}.db")
+def _db_path(data_source_id: int) -> str:
+    return os.path.join(_DB_DIR, f"duckdb_source_{data_source_id}.db")
 
 
 def _is_fresh(path: str) -> bool:
@@ -38,7 +41,7 @@ def _is_fresh(path: str) -> bool:
         os.remove(path)
         return False
     try:
-        con = duckdb.connect(path)
+        con = duckdb.connect(path, read_only=True)
         try:
             con.execute(f"SELECT 1 FROM {_SENTINEL}")
             # Verificar que hay al menos una tabla real (no solo el centinela).
@@ -55,35 +58,35 @@ def _is_fresh(path: str) -> bool:
         return False
 
 
-def _init_database(dashboard) -> str:
+def _init_database(data_source) -> str:
     """
-    Crea el archivo DuckDB con tablas vacías (solo estructura) para cada pestaña
-    del origen. No baja datos — eso se hace bajo demanda en _ensure_table_data
-    cuando un widget realmente necesita la tabla.
+    Crea el archivo DuckDB y carga TODAS las tablas del origen por completo (Sheets: una
+    tabla física por pestaña, vía connector.fetch_all_dataframes -- un solo values_batch_get
+    del lado de Google Sheets, sin importar cuántas pestañas tenga; Postgres: ATTACH, sin
+    copiar datos).
     """
-    dashboard_id = dashboard.id
-    path = _db_path(dashboard_id)
-    alias = dashboard.data_source.source_type
+    path = _db_path(data_source.id)
+    alias = data_source.source_type
 
     if os.path.exists(path):
         os.remove(path)
 
     con = duckdb.connect(path)
     try:
-        connector = dashboard.data_source.get_connector()
+        connector = data_source.get_connector()
 
         if isinstance(connector, DataFrameBackedConnector):
-            all_tables = connector.list_tables()
-            con.execute(f"CREATE TABLE {_META} (qualified VARCHAR, original VARCHAR)")
-            for table in all_tables:
+            dataframes = connector.fetch_all_dataframes()
+            for table in connector.list_tables():
+                df = dataframes.get(table.name)
+                if df is None or df.shape[1] == 0:
+                    continue
                 qname = connector.qualified_table_name(table, alias)
-                if table.columns:
-                    cols = ', '.join(f'"{c}" VARCHAR' for c in table.columns)
-                    con.execute(f'CREATE TABLE "{qname}" ({cols})')
-                esc_orig = table.original_name if hasattr(table, 'original_name') else table.name
-                con.execute(
-                    f"INSERT INTO {_META} VALUES ('{qname}', '{esc_orig.replace(chr(39), chr(39)+chr(39))}')"
-                )
+                cols = ', '.join(f'"{c}" VARCHAR' for c in df.columns)
+                con.execute(f'CREATE TABLE "{qname}" ({cols})')
+                con.register("_df", df)
+                con.execute(f'INSERT INTO "{qname}" SELECT * FROM _df')
+                con.execute("DROP VIEW IF EXISTS _df")
         else:
             connector.register(con, alias=alias)
 
@@ -98,59 +101,20 @@ def _init_database(dashboard) -> str:
     return path
 
 
-def _ensure_table_data(dashboard, qualified_table_name: str) -> None:
+def refresh_database(data_source) -> None:
     """
-    Si la tabla DuckDB está vacía (recién creada), baja los datos del origen
-    y los inserta. Lock distribuido por tabla para que solo un worker lo haga.
+    Fuerza la reconstrucción completa del archivo DuckDB de este origen, sin importar si
+    seguía fresco -- usado por el management command refresh_sheets_cache (cron cada 5 min)
+    para que el archivo nunca llegue a expirar bajo uso normal del dashboard. Mismo lock
+    distribuido que get_query_connection, para no chocar con un request en vivo que esté
+    reconstruyendo el mismo origen en simultáneo.
     """
-    path = _db_path(dashboard.id)
-    if not _is_fresh(path):
-        get_query_connection(dashboard)
-
-    lock_key = f"duckdb_fill_{dashboard.id}_{qualified_table_name}"
-    if not cache.add(lock_key, "1", timeout=_INIT_LOCK_TIMEOUT):
-        return
-
-    try:
-        con = duckdb.connect(path)
+    lock_key = f"duckdb_init_{data_source.id}"
+    if cache.add(lock_key, "1", timeout=_INIT_LOCK_TIMEOUT):
         try:
-            esc_q = qualified_table_name.replace("'", "''")
-            row = con.execute(
-                "SELECT COUNT(*) FROM information_schema.tables "
-                f"WHERE table_name = '{esc_q}'"
-            ).fetchone()
-            table_exists = bool(row and row[0] > 0)
-
-            if table_exists:
-                row = con.execute(f'SELECT COUNT(*) FROM "{qualified_table_name}"').fetchone()
-                if row and row[0] > 0:
-                    return
-
-            row = con.execute(
-                f"SELECT original FROM {_META} WHERE qualified = '{esc_q}'"
-            ).fetchone()
-            if not row:
-                return
-
-            connector = dashboard.data_source.get_connector()
-            if not isinstance(connector, DataFrameBackedConnector):
-                return
-
-            df = connector.fetch_dataframe(row[0])
-            if df.shape[1] == 0:
-                return
-
-            if not table_exists:
-                cols = ', '.join(f'"{c}" VARCHAR' for c in df.columns)
-                con.execute(f'CREATE TABLE "{qualified_table_name}" ({cols})')
-
-            con.register("_df", df)
-            con.execute(f'INSERT INTO "{qualified_table_name}" SELECT * FROM _df')
-            con.execute("DROP VIEW IF EXISTS _df")
+            _init_database(data_source)
         finally:
-            con.close()
-    finally:
-        cache.delete(lock_key)
+            cache.delete(lock_key)
 
 
 @util(
@@ -160,7 +124,9 @@ def _ensure_table_data(dashboard, qualified_table_name: str) -> None:
         "lista para correr SQL. Funciona para cualquier tipo de origen (Google Sheets, Postgres, "
         "...) -- las tablas de Sheets quedan como '<tipo>__<pestaña>' (ver DataFrameBackedConnector), "
         "las de Postgres como '<tipo>.<schema>.<tabla>' (catálogo adjuntado vía ATTACH). "
-        "La conexión se reusa entre widgets del mismo tablero (archivo DuckDB persistente)."
+        "La conexión se reusa entre widgets del mismo tablero, e incluso entre dashboards "
+        "distintos que compartan el mismo origen de datos (archivo DuckDB persistente por "
+        "DataSource)."
     ),
     example="con = get_query_connection(widget.dashboard); df = con.execute(\"SELECT * FROM postgres.public.ventas\").df()",
 )
@@ -168,32 +134,33 @@ def get_query_connection(dashboard) -> duckdb.DuckDBPyConnection:
     if dashboard.data_source_id is None:
         raise ValueError(f"El tablero {dashboard.id} no tiene un origen de datos configurado (data_source).")
 
-    path = _db_path(dashboard.id)
+    path = _db_path(dashboard.data_source_id)
 
     # 1. Intentar abrir existente y fresco
     if _is_fresh(path):
-        return duckdb.connect(path)
+        return duckdb.connect(path, read_only=True)
 
-    # 2. Inicializar (con lock distribuido entre workers)
-    lock_key = f"duckdb_init_{dashboard.id}"
+    # 2. Inicializar (con lock distribuido entre workers Y entre dashboards que compartan
+    # el mismo origen, para que no lo reconstruyan dos veces en simultáneo)
+    lock_key = f"duckdb_init_{dashboard.data_source_id}"
     if cache.add(lock_key, "1", timeout=_INIT_LOCK_TIMEOUT):
         try:
             # Otro proceso pudo haber inicializado mientras esperábamos el lock
             if _is_fresh(path):
-                return duckdb.connect(path)
+                return duckdb.connect(path, read_only=True)
 
-            _init_database(dashboard)
+            _init_database(dashboard.data_source)
         finally:
             cache.delete(lock_key)
 
-        return duckdb.connect(path)
+        return duckdb.connect(path, read_only=True)
 
     # 3. Otro worker está inicializando — esperar a que termine
     deadline = time.monotonic() + _INIT_LOCK_TIMEOUT
     while time.monotonic() < deadline:
         time.sleep(0.2)
         if _is_fresh(path):
-            return duckdb.connect(path)
+            return duckdb.connect(path, read_only=True)
 
     # Si el lock expiró sin éxito, reintentamos (recursión controlada)
     return get_query_connection(dashboard)

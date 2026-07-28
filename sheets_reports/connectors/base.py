@@ -96,6 +96,16 @@ class DataFrameBackedConnector(DataConnector):
         safe_name = re.sub(r"_+", "_", safe_name).strip("_")
         return f"{alias}__{safe_name}"
 
+    def fetch_all_dataframes(self) -> dict:
+        """
+        Trae TODAS las tablas de este origen de una vez, como { nombre_tabla: DataFrame } --
+        usado por duckdb_query._init_database para llenar el archivo DuckDB persistente
+        completo al (re)inicializarlo, en vez de ir tabla por tabla bajo demanda. Implementación
+        genérica: un fetch_dataframe por tabla; subclases con una forma más barata de traer
+        todo junto (ej. GoogleSheetsConnector, vía un solo batchGet) deben overridear este método.
+        """
+        return {table.name: self.fetch_dataframe(table.name) for table in self.list_tables()}
+
 
 class SqlNativeConnector(DataConnector):
     """
