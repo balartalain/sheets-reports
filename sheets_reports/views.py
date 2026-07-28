@@ -56,11 +56,10 @@ def _get_request_data(request):
 
 def _pre_warm_dashboard_cache(dashboard) -> None:
     """
-    Inicializa en background la base DuckDB persistente (y por transitividad el
-    pickle cache de DataFrames), para que cuando los widgets del tablero pidan
-    datos por primera vez no tengan que esperar el fetch a Google Sheets ni la
-    inicialización de DuckDB. Best-effort: si falla silenciosamente, el primer
-    widget que se renderice hará la inicialización bajo el lock distribuido.
+    Inicializa en background la base DuckDB persistente del origen de datos del tablero,
+    para que cuando los widgets pidan datos por primera vez no tengan que esperar el fetch
+    a Google Sheets ni la inicialización de DuckDB. Best-effort: si falla silenciosamente,
+    el primer widget que se renderice hará la inicialización bajo el lock distribuido.
     """
     from sheets_reports.utils.duckdb_query import get_query_connection
 
@@ -92,8 +91,8 @@ def dashboard_widgets(request, dashboard_id):
         )
         response = JsonResponse(list(widgets), safe=False)
 
-        # Pre-warm: inicializar la base DuckDB persistente y el pickle cache
-        # en background, para que cuando los widgets pidan datos ya estén listos.
+        # Pre-warm: inicializar la base DuckDB persistente en background,
+        # para que cuando los widgets pidan datos ya esté lista.
         _pre_warm_dashboard_cache(dashboard)
 
         return response

@@ -167,30 +167,15 @@ def _build_exec_namespace(dashboard=None):
     return namespace
 
 
-def _preload_widget_tables(widget) -> None:
-    """Carga bajo demanda las tablas DuckDB que el código del widget referencia."""
-    import re
-
-    dashboard = widget.dashboard
-    if dashboard.data_source_id is None:
-        return
-
-    from sheets_reports.utils.duckdb_query import _ensure_table_data
-
-    alias = dashboard.data_source.source_type
-    pattern = re.compile(re.escape(alias) + r"__(\w+)")
-    for m in pattern.finditer(widget.code or ""):
-        _ensure_table_data(dashboard, f"{alias}__{m.group(1)}")
-
-
 def execute_widget_code(code: str, request, widget) -> JsonResponse:
     """
     Ejecuta el código Python guardado en widget.code. El código debe definir
     `def run(request, widget):` que retorna un JsonResponse (misma convención de
-    retorno que las funciones basadas en archivo).
+    retorno que las funciones basadas en archivo). Las tablas DuckDB del origen del
+    tablero ya están completas para cuando esto corre -- get_query_connection
+    (duckdb_query.py) las carga todas de una al (re)inicializar el archivo persistente,
+    sin depender de qué tablas mencione el código de este widget en particular.
     """
-    _preload_widget_tables(widget)
-
     try:
         namespace = _build_exec_namespace(widget.dashboard)
     except CustomUtilError as e:

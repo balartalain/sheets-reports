@@ -101,6 +101,57 @@ def fetch_sheets_preview(source_url: str, n_rows: int = 3) -> dict[str, dict]:
     return preview
 
 
+def fetch_all_sheets_as_dataframes(source_url: str) -> dict[str, pd.DataFrame]:
+    """
+    Trae, en una sola llamada a la API (values_batch_get), los datos COMPLETOS de TODAS las
+    pestañas del spreadsheet. Se usa para el refresco en background (management command
+    refresh_sheets_cache): reemplaza lo que de otra forma serían N llamadas a
+    fetch_sheet_as_dataframe (una por pestaña) por 1 sola, sin importar cuántas pestañas
+    tenga el spreadsheet -- así un refresco completo cuesta 2 llamadas (open_by_url +
+    values_batch_get) en vez de 2+N.
+
+    Los valores vienen como strings crudos (sin la coerción de tipos de get_all_records),
+    lo cual no afecta nada río abajo porque duckdb_query.py ya crea todas las columnas de
+    Sheets como VARCHAR.
+
+    Retorna { "<título de pestaña>": DataFrame }.
+    """
+    creds = get_credentials()
+    client = gspread.authorize(creds)
+
+    _wait_gsheets_slot()
+    spreadsheet = client.open_by_url(source_url)
+
+    _wait_gsheets_slot()
+    titles = [ws.title for ws in spreadsheet.worksheets()]
+    if not titles:
+        return {}
+
+    ranges = []
+    for title in titles:
+        escaped_title = title.replace("'", "''")
+        ranges.append(f"'{escaped_title}'")
+    _wait_gsheets_slot()
+    response = spreadsheet.values_batch_get(ranges)
+
+    dataframes = {}
+    for title, value_range in zip(titles, response.get("valueRanges", [])):
+        rows = value_range.get("values", [])
+        if not rows:
+            dataframes[title] = pd.DataFrame()
+            continue
+        columns = rows[0]
+        data_rows = rows[1:]
+        dataframes[title] = pd.DataFrame(
+            [
+                {col: (row[i] if i < len(row) else "") for i, col in enumerate(columns)}
+                for row in data_rows
+            ],
+            columns=columns,
+        )
+    return dataframes
+
+
 def fetch_sheet_as_dataframe(source_url: str, sheet_name: str | None = None) -> pd.DataFrame:
     """
     Conecta a una hoja de Google Sheets y retorna sus datos como DataFrame.
