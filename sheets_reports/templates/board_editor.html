@@ -208,6 +208,16 @@
               </select>
             </template>
 
+            <template x-if="field.type === 'range'">
+              <div class="flex items-center gap-3">
+                <input type="range" x-model.number="$store.dashboard.drawerDraft[field.key]"
+                       x-bind:min="field.min" x-bind:max="field.max" x-bind:step="field.step || 1"
+                       class="flex-1 h-2 rounded-lg appearance-none cursor-pointer bg-line accent-moss-500">
+                <span class="text-sm font-semibold text-ink/70 min-w-[2ch] text-center"
+                      x-text="$store.dashboard.drawerDraft[field.key]"></span>
+              </div>
+            </template>
+
             <template x-if="field.type === 'checkbox'">
               <input type="checkbox" x-model="$store.dashboard.drawerDraft[field.key]"
                      class="h-4 w-4 rounded border-line text-moss-600 focus:ring-moss-500">

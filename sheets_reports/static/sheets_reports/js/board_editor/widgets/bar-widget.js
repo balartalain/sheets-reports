@@ -33,6 +33,7 @@
         this.FIELD_HORIZONTAL,
         { key: 'yAxisWidth', label: 'Ancho del Eje Y (px)', type: 'number', min: 100, step: 10 },
         { key: 'stacked', label: 'Apilado', type: 'checkbox' },
+        { key: 'barWidth', label: 'Ancho de barra', type: 'range', min: 20, max: 90, step: 5 },
         { key: 'dataLabelFormatter', label: 'Formato de Etiquetas de Datos. Ej. {value} %', type: 'text' },
         { key: 'chartWidth', label: 'Forzar ancho de gráfico', type: 'number', min: 100, step: 50 },
         { key: 'showGrid', label: 'Mostrar cuadrícula', type: 'checkbox' },
@@ -51,6 +52,7 @@
       this.horizontal = raw.horizontal ?? false;
       this.yAxisWidth = raw.yAxisWidth;
       this.stacked = raw.stacked ?? false;
+      this.barWidth = raw.barWidth ?? 70;
       this.dataLabelFormatter = raw.dataLabelFormatter;
       this.chartWidth = raw.chartWidth;
       this.showGrid = raw.showGrid ?? false;
@@ -78,6 +80,7 @@
         horizontal: this.horizontal,
         yAxisWidth: this.yAxisWidth,
         stacked: this.stacked,
+        barWidth: this.barWidth,
         dataLabelFormatter: this.dataLabelFormatter,
         chartWidth: this.chartWidth,
         showGrid: this.showGrid,
@@ -121,6 +124,7 @@
           maxHeight: 150
         },
         plotOptions: { bar: { horizontal: this.horizontal, borderRadius: 4, borderRadiusApplication: 'end',
+          [this.horizontal ? 'barHeight' : 'columnWidth']: this.barWidth + '%',
           dataLabels:{
             position: 'top'
           }
