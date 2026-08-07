@@ -82,10 +82,8 @@ def _init_database(data_source) -> str:
                 if df is None or df.shape[1] == 0:
                     continue
                 qname = connector.qualified_table_name(table, alias)
-                cols = ', '.join(f'"{c}" VARCHAR' for c in df.columns)
-                con.execute(f'CREATE TABLE "{qname}" ({cols})')
                 con.register("_df", df)
-                con.execute(f'INSERT INTO "{qname}" SELECT * FROM _df')
+                con.execute(f'CREATE TABLE "{qname}" AS SELECT * FROM _df')
                 con.execute("DROP VIEW IF EXISTS _df")
         else:
             connector.register(con, alias=alias)

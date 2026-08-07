@@ -45,7 +45,10 @@ No generes INSERT/UPDATE/DELETE ni DDL (orígenes de solo lectura).
 TODO el procesamiento de datos (conversiones de tipo, filtrado de nulos, agregaciones,
 ordenamiento, formateo de fechas, etc.) debés hacerlo DENTRO de la consulta SQL, no con
 pandas. DuckDB soporta `CAST`, `TRY_CAST`, `SUM`, `COUNT`, `GROUP BY`, `ORDER BY`, `WHERE`,
-funciones de fecha, etc. — usá todo eso directamente en SQL. No recorras ni transformes el
+funciones de fecha, etc. — usá todo eso directamente en SQL.
+Si una columna contiene fechas pero está almacenada como texto (VARCHAR), usá
+`CAST(columna AS TIMESTAMP)` o `TRY_CAST(columna AS TIMESTAMP)` antes de aplicar
+funciones como `strftime`, `date_trunc`, etc. No recorras ni transformes el
 resultado con pandas después de la consulta.
 
 Al final, convertí el resultado a listas Python usando `.fetchall()` o `.df()` solo para
