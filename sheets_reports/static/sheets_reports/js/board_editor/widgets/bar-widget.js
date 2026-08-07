@@ -173,10 +173,10 @@
         yaxis: {
           labels: {
             ...(this.yAxisWidth && { maxWidth: this.yAxisWidth }),
-          }
-        },
-        min: (min) => Math.min(min, 0),
-        max: (max) => max * 1.12,
+          },
+          min: (min) => Math.min(min, 0),
+          max: (max) => max * 1.12,
+        }
       };
       this.renderApexChart(container, options).then(() => {
         this._wireLegendDrag(container, series);
