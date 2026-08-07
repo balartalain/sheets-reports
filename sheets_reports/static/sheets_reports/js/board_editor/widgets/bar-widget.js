@@ -173,8 +173,7 @@
         yaxis: {
           labels: {
             ...(this.yAxisWidth && { maxWidth: this.yAxisWidth }),
-          },
-          max: (max) => max * 1.12,
+          }
         },
       };
       this.renderApexChart(container, options).then(() => {
