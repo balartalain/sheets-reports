@@ -77,10 +77,25 @@ texto en tu código, ej. active_filters.get("Nivel", None) para obtener el valor
 seleccionado. Devolvé ese mismo nombre de columna en tu respuesta bajo la clave "field", como
 en el shape de arriba, para que el sistema lo guarde automáticamente en el widget.
 
-Para widgets que NO son filter (bar, line, donut, kpi, table): obtené los filtros activos
-con `active_filters = get_active_filters(request, widget)` y usá sus valores como
-parámetros en tu consulta SQL, ej.:
-    con.execute("SELECT * FROM tabla WHERE region = ?", [active_filters.get("region")])
+Para widgets que NO son filter (bar, line, donut, kpi, table): TODOS deben respetar
+implícitamente TODOS los filtros que estén activos en el tablero, aunque el usuario no lo
+pida explícitamente en su prompt — es el comportamiento por default, no una excepción.
+Solo dejá de aplicar un filtro puntual si el prompt del usuario lo pide explícitamente para
+ESE widget (ej. "este gráfico no debe filtrarse por año").
+
+Para lograrlo, no filtres a mano por un único campo que creas relevante: recorré TODOS los
+filtros activos y armá una condición por cada uno, ej.:
+    active_filters = get_active_filters(request, widget)
+    where_clauses, params = [], []
+    for field, value in active_filters.items():
+        if value:
+            where_clauses.append(f'"{field}" = ?')
+            params.append(value)
+    where_sql = f" WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+    con.execute(f'SELECT * FROM tabla{where_sql}', params)
+El WHERE puede referenciar columnas que no estén en el SELECT sin problema — no hace falta
+que la tabla incluya todas en el resultado final, solo que existan en el origen de datos.
+
 Los widgets tipo filter NO deben filtrarse a sí mismos — deben mostrar todas las opciones
 disponibles sin aplicar ningún filtro. Usá `get_active_filters` solo para preseleccionar
 el valor actual: `selected = active_filters.get("<campo>", None)`.
