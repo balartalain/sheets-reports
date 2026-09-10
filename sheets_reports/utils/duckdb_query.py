@@ -11,6 +11,7 @@ TTL del caché de DataFrames, el archivo .db se invalida y se reconstruye por co
 siguiente solicitud -- llenando TODAS las tablas de una vez (connector.fetch_all_dataframes),
 sin escanear el código de cada widget para adivinar cuáles hacen falta.
 """
+import logging
 import os
 import time
 import duckdb
@@ -20,6 +21,8 @@ from django.core.cache import cache
 from .cache import CACHE_TIMEOUT
 from .registry import util
 from sheets_reports.connectors.base import DataFrameBackedConnector
+
+logger = logging.getLogger(__name__)
 
 _DB_DIR = "/tmp"
 _INIT_LOCK_TIMEOUT = 30
@@ -58,6 +61,51 @@ def _is_fresh(path: str) -> bool:
         return False
 
 
+def _apply_calculated_columns(con, data_source, qname: str) -> None:
+    """
+    Si `qname` tiene columnas calculadas activas, renombra la tabla física recién creada
+    (sufijo "__base") y la reemplaza por una VIEW con el nombre original que agrega esas
+    columnas -- así SELECT * FROM "{qname}" (sin calificar, tal como ya lo hace todo el
+    código de widgets existente, incluido get_cached_df) las incluye automáticamente, sin
+    que nadie tenga que llamar a ninguna función.
+
+    Aislado en su propio try/except: una expresión rota en una columna calculada no debe
+    tirar abajo la reconstrucción de TODO el origen de datos (lo comparten varios tableros).
+    Si falla, la tabla queda como tabla física simple, sin la columna calculada rota.
+    """
+    calc_cols = list(data_source.calculated_columns.filter(table_name=qname, is_active=True))
+    if not calc_cols:
+        return
+    try:
+        base_name = f"{qname}__base"
+        con.execute(f'ALTER TABLE "{qname}" RENAME TO "{base_name}"')
+        extra_cols_sql = ", ".join(f'({cc.expression}) AS "{cc.column_name}"' for cc in calc_cols)
+        con.execute(f'CREATE VIEW "{qname}" AS SELECT *, {extra_cols_sql} FROM "{base_name}"')
+    except Exception:
+        logger.exception(
+            "No se pudieron aplicar las columnas calculadas de '%s' (data_source %s); "
+            "la tabla queda sin ellas.", qname, data_source.id,
+        )
+        con.execute(f'ALTER TABLE IF EXISTS "{base_name}" RENAME TO "{qname}"')
+
+
+def invalidate_database(data_source) -> None:
+    """
+    Borra el archivo DuckDB cacheado de este origen (si existe), sin reconstruirlo. La
+    próxima llamada a get_query_connection/get_cached_df lo reconstruye perezosamente --
+    mismo mecanismo que ya existe para cuando expira el TTL normal. Se usa al crear/editar/
+    borrar una columna calculada, para que el cambio no espere hasta 5 minutos en aparecer,
+    sin bloquear el request de guardado con una reconstrucción completa (que implica volver
+    a leer la hoja de cálculo).
+    """
+    path = _db_path(data_source.id)
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+    except OSError:
+        logger.exception("No se pudo invalidar la caché DuckDB del origen %s", data_source.id)
+
+
 def _init_database(data_source) -> str:
     """
     Crea el archivo DuckDB y carga TODAS las tablas del origen por completo (Sheets: una
@@ -85,6 +133,7 @@ def _init_database(data_source) -> str:
                 con.register("_df", df)
                 con.execute(f'CREATE TABLE "{qname}" AS SELECT * FROM _df')
                 con.execute("DROP VIEW IF EXISTS _df")
+                _apply_calculated_columns(con, data_source, qname)
         else:
             connector.register(con, alias=alias)
 

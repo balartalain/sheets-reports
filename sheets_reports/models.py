@@ -224,3 +224,32 @@ class DashboardUtilFunction(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.dashboard.title})"
+
+
+class CalculatedColumn(models.Model):
+    """Columna derivada vía una expresión SQL de DuckDB (ej. "Nivel" calculado a partir de
+    otra columna con un CASE WHEN), horneada directamente en la tabla cacheada del origen de
+    datos (ver sheets_reports.utils.duckdb_query._init_database): se expone como una VIEW con
+    el mismo nombre calificado que la tabla física, así cualquier SELECT * la incluye sin que
+    ningún widget tenga que llamar a nada.
+
+    A propósito está asociada al DataSource, no al Dashboard: la caché de DuckDB es por
+    origen de datos (varios tableros pueden compartir el mismo), y una columna calculada es
+    un enriquecimiento del dato en sí, visible para todos los tableros que usan ese origen."""
+    data_source = models.ForeignKey(DataSource, related_name='calculated_columns', on_delete=models.CASCADE)
+    table_name = models.CharField(max_length=255, help_text="Nombre calificado de la tabla, ej. 'google_sheets__Respuestas'.")
+    column_name = models.CharField(max_length=100, help_text="Nombre de la columna resultante, ej. 'Nivel'.")
+    expression = models.TextField(help_text="Expresión SQL de DuckDB (ej. un CASE WHEN), usable dentro de SELECT (expr) AS col.")
+    description = models.TextField(blank=True)
+    created_from_prompt = models.TextField(blank=True)  # qué pidió el usuario para generarla
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "Columna Calculada"
+        verbose_name_plural = "Columnas Calculadas"
+        unique_together = [('data_source', 'table_name', 'column_name')]
+        ordering = ["table_name", "column_name"]
+
+    def __str__(self):
+        return f'{self.column_name} ({self.table_name})'

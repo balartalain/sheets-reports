@@ -15,7 +15,21 @@ document.addEventListener('alpine:init', () => {
     utilDraft: null,
     utilGenerating: false,
     utilGenerateError: '',
+    calcColsOpen: false,
+    calculatedColumns: [],
+    availableTables: [],
+    calcColDraft: null,
+    calcColGenerating: false,
+    calcColGenerateError: '',
     _nextId: -1,
+
+    get calculatedColumnsByTable() {
+      const byTable = {};
+      for (const cc of this.calculatedColumns) {
+        (byTable[cc.table_name] ??= []).push(cc);
+      }
+      return byTable;
+    },
 
     get customUtils() {
       return this.availableUtils.filter(u => u.origin === 'custom');
@@ -29,6 +43,20 @@ document.addEventListener('alpine:init', () => {
       try {
         const r = await fetch(apiUrl(`/api/dashboard/${this.dashboardId}/utils/`));
         this.availableUtils = await r.json();
+      } catch (e) {}
+    },
+
+    async loadCalculatedColumns() {
+      try {
+        const r = await fetch(apiUrl(`/api/dashboard/${this.dashboardId}/calculated-columns/`));
+        this.calculatedColumns = await r.json();
+      } catch (e) {}
+    },
+
+    async loadAvailableTables() {
+      try {
+        const r = await fetch(apiUrl(`/api/dashboard/${this.dashboardId}/tables/`));
+        this.availableTables = await r.json();
       } catch (e) {}
     },
 
@@ -275,6 +303,103 @@ document.addEventListener('alpine:init', () => {
         await fetch(apiUrl(`/api/util-function/${u.id}/`), { method: 'DELETE' });
       } catch (e) {}
       await this.loadUtils();
+    },
+
+    openCalcColsPanel() {
+      this.calcColsOpen = true;
+      this.loadCalculatedColumns();
+      this.loadAvailableTables();
+    },
+
+    closeCalcColsPanel() {
+      this.calcColsOpen = false;
+      this.calcColDraft = null;
+      this.calcColGenerateError = '';
+    },
+
+    newCalcColDraft() {
+      this.calcColDraft = { id: null, table_name: '', prompt: '', column_name: '', expression: '', description: '' };
+      this.calcColGenerateError = '';
+    },
+
+    editCalcColDraft(cc) {
+      this.calcColDraft = {
+        id: cc.id, table_name: cc.table_name, prompt: '',
+        column_name: cc.column_name, expression: cc.expression, description: cc.description,
+      };
+      this.calcColGenerateError = '';
+    },
+
+    cancelCalcColDraft() {
+      this.calcColDraft = null;
+      this.calcColGenerateError = '';
+    },
+
+    async generateCalcCol() {
+      const draft = this.calcColDraft;
+      if (!draft || !draft.prompt || !draft.table_name) return;
+      this.calcColGenerating = true;
+      this.calcColGenerateError = '';
+      try {
+        const r = await fetch(apiUrl(`/api/dashboard/${this.dashboardId}/calculated-columns/generate/`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            table_name: draft.table_name,
+            prompt: draft.prompt,
+            existing: draft.id
+              ? { column_name: draft.column_name, expression: draft.expression }
+              : null,
+          }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'Error generando la columna calculada');
+        Object.assign(draft, {
+          column_name: data.column_name, expression: data.expression, description: data.description,
+        });
+        draft.prompt = '';
+      } catch (e) {
+        this.calcColGenerateError = e.message;
+      } finally {
+        this.calcColGenerating = false;
+      }
+    },
+
+    async saveCalcColDraft() {
+      const draft = this.calcColDraft;
+      if (!draft || !draft.expression || !draft.table_name) return;
+      const body = {
+        table_name: draft.table_name, column_name: draft.column_name,
+        expression: draft.expression, description: draft.description,
+      };
+      try {
+        const r = draft.id
+          ? await fetch(apiUrl(`/api/calculated-column/${draft.id}/`), {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            })
+          : await fetch(apiUrl(`/api/dashboard/${this.dashboardId}/calculated-columns/`), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'Error guardando la columna calculada');
+      } catch (e) {
+        this.calcColGenerateError = e.message;
+        return;
+      }
+      this.calcColDraft = null;
+      await this.loadCalculatedColumns();
+    },
+
+    async deleteCalcCol(cc) {
+      if (!confirm(`¿Eliminar la columna calculada "${cc.column_name}"? Los widgets que la usen dejarán de tenerla disponible.`)) return;
+      try {
+        await fetch(apiUrl(`/api/calculated-column/${cc.id}/`), { method: 'DELETE' });
+      } catch (e) {}
+      await this.loadCalculatedColumns();
     },
   });
 });

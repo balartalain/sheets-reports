@@ -76,6 +76,10 @@
         <i class="ti ti-code text-sm" aria-hidden="true"></i>
         Funciones utilitarias
       </button>
+      <button onclick="Alpine.store('dashboard').openCalcColsPanel()" class="bg-white border border-line hover:bg-paper text-ink/70 py-2.5 px-4 rounded-xl font-medium text-sm transition cursor-pointer flex items-center gap-1.5">
+        <i class="ti ti-table-plus text-sm" aria-hidden="true"></i>
+        Columnas calculadas
+      </button>
       <button id="share-btn" class="bg-white border border-line hover:bg-paper text-ink/70 py-2.5 px-4 rounded-xl font-medium text-sm transition cursor-pointer">
         Compartir
       </button>
@@ -371,6 +375,132 @@
   </div>
 </div>
 
+<div id="calc-cols-overlay" x-data x-show="$store.dashboard.calcColsOpen" x-on:click="$store.dashboard.closeCalcColsPanel()" x-cloak
+     class="fixed inset-0 bg-ink/20 z-40" x-transition.opacity></div>
+
+<div id="calc-cols-drawer" x-data
+     x-bind:class="$store.dashboard.calcColsOpen ? 'translate-x-0' : 'translate-x-full'"
+     class="fixed top-0 right-0 h-full w-[34rem] max-w-[90vw] bg-white shadow-xl border-l border-line z-50 transition-transform duration-300 overflow-y-auto">
+  <div class="p-5">
+    <div class="flex justify-between items-center mb-6">
+      <h3 class="text-sm font-bold text-ink">Columnas calculadas</h3>
+      <button x-on:click="$store.dashboard.closeCalcColsPanel()" class="text-ink/40 hover:text-ink transition cursor-pointer text-sm">✕</button>
+    </div>
+
+    <p class="text-xs text-ink/50 mb-4">
+      Columnas derivadas de otra columna mediante una expresión SQL (ej. clasificar un texto
+      libre en categorías). Se agregan automáticamente a los datos de la tabla elegida —
+      visibles para <strong>todos los tableros</strong> que usen el mismo origen de datos, no
+      solo este.
+    </p>
+
+    <div class="space-y-4 mb-3" x-show="Object.keys($store.dashboard.calculatedColumnsByTable).length">
+      <template x-for="tableName in Object.keys($store.dashboard.calculatedColumnsByTable)" :key="tableName">
+        <div>
+          <h4 class="text-[11px] font-semibold text-ink/40 uppercase tracking-wide mb-2" x-text="tableName"></h4>
+          <div class="space-y-2">
+            <template x-for="cc in $store.dashboard.calculatedColumnsByTable[tableName]" :key="cc.id">
+              <div class="border border-line rounded-lg p-3" x-bind:class="!cc.is_active ? 'opacity-50' : ''">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="min-w-0">
+                    <span class="text-sm font-mono font-semibold text-ink" x-text="cc.column_name"></span>
+                    <p class="text-xs text-ink/60 mt-1" x-text="cc.description"></p>
+                  </div>
+                  <div class="flex items-center gap-2 shrink-0">
+                    <button type="button" x-on:click="$store.dashboard.editCalcColDraft(cc)"
+                            class="text-ink/40 hover:text-moss-600 transition cursor-pointer" title="Editar">
+                      <i class="ti ti-pencil text-sm" aria-hidden="true"></i>
+                    </button>
+                    <button type="button" x-on:click="$store.dashboard.deleteCalcCol(cc)"
+                            class="text-ink/40 hover:text-red-600 transition cursor-pointer" title="Eliminar">
+                      <i class="ti ti-trash text-sm" aria-hidden="true"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+    </div>
+    <p x-show="!Object.keys($store.dashboard.calculatedColumnsByTable).length" class="text-xs text-ink/40 italic mb-3">
+      Todavía no hay columnas calculadas en el origen de datos de este tablero.
+    </p>
+
+    <button type="button" x-show="!$store.dashboard.calcColDraft" x-on:click="$store.dashboard.newCalcColDraft()"
+            class="w-full text-sm font-medium text-moss-700 border border-dashed border-moss-300 hover:bg-moss-tint rounded-lg py-2 transition cursor-pointer flex items-center justify-center gap-1.5 mb-4">
+      <i class="ti ti-plus text-base" aria-hidden="true"></i>
+      Nueva columna calculada
+    </button>
+
+    <template x-if="$store.dashboard.calcColDraft">
+      <div class="rounded-xl border border-moss-100 bg-moss-tint p-3 space-y-3 mb-4">
+        <div class="flex items-center gap-1.5 text-xs font-semibold text-moss-700">
+          <i class="ti ti-sparkles text-sm" aria-hidden="true"></i>
+          <span>Generado con IA</span>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-ink/70 mb-1">Tabla</label>
+          <select x-model="$store.dashboard.calcColDraft.table_name"
+                  x-bind:disabled="!!$store.dashboard.calcColDraft.id"
+                  class="w-full text-sm border border-line rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:border-moss-500 disabled:opacity-60">
+            <option value="">Elegí una tabla…</option>
+            <template x-for="t in $store.dashboard.availableTables" :key="t.table_name">
+              <option x-bind:value="t.table_name" x-text="t.table_name"></option>
+            </template>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-ink/70 mb-1">Descripción para IA</label>
+          <textarea x-model="$store.dashboard.calcColDraft.prompt" rows="3"
+                    placeholder="Describe la columna (ej. Nivel: clasificar 'Período que está cursando' en Nuevo Ingreso/Regular/Termino)"
+                    class="w-full text-sm border border-line rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-moss-500"></textarea>
+          <button type="button"
+                  x-on:click="$store.dashboard.generateCalcCol()"
+                  x-bind:disabled="$store.dashboard.calcColGenerating || !$store.dashboard.calcColDraft.prompt || !$store.dashboard.calcColDraft.table_name"
+                  class="mt-2 w-full text-sm font-medium text-white bg-moss-500 hover:bg-moss-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg py-2 transition cursor-pointer flex items-center justify-center gap-1.5">
+            <i class="ti text-base" x-bind:class="$store.dashboard.calcColGenerating ? 'ti-loader-2 animate-spin' : 'ti-sparkles'" aria-hidden="true"></i>
+            <span x-text="$store.dashboard.calcColGenerating ? 'Generando…' : 'Generar con IA'"></span>
+          </button>
+          <p x-show="$store.dashboard.calcColGenerateError" x-text="$store.dashboard.calcColGenerateError"
+             class="mt-1 text-xs text-red-600"></p>
+        </div>
+
+        <template x-if="$store.dashboard.calcColDraft.expression">
+          <div class="space-y-2">
+            <div>
+              <label class="block text-xs font-semibold text-ink/70 mb-1">Nombre de la columna</label>
+              <input type="text" x-model="$store.dashboard.calcColDraft.column_name"
+                     class="w-full text-sm font-mono border border-line rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:border-moss-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-ink/70 mb-1">Descripción</label>
+              <textarea x-model="$store.dashboard.calcColDraft.description" rows="2"
+                        class="w-full text-sm border border-line rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:border-moss-500"></textarea>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-ink/70 mb-1">Expresión SQL generada</label>
+              <pre class="w-full text-xs font-mono border border-line rounded-lg bg-white max-h-56 overflow-auto"><code
+                  class="language-sql"
+                  x-effect="$el.textContent = $store.dashboard.calcColDraft.expression || ''; Prism.highlightElement($el)"></code></pre>
+            </div>
+          </div>
+        </template>
+
+        <div class="flex gap-2 pt-1">
+          <button type="button" x-on:click="$store.dashboard.cancelCalcColDraft()"
+                  class="flex-1 text-sm font-medium text-ink/60 bg-white border border-line hover:bg-paper rounded-lg py-2 transition cursor-pointer">Cancelar</button>
+          <button type="button" x-on:click="$store.dashboard.saveCalcColDraft()"
+                  x-bind:disabled="!$store.dashboard.calcColDraft.expression"
+                  class="flex-1 text-sm font-medium text-white bg-moss-500 hover:bg-moss-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg py-2 transition cursor-pointer">Guardar</button>
+        </div>
+      </div>
+    </template>
+  </div>
+</div>
+
 <script>
   window.DASHBOARD_ID = {{ board_id }};
   window.DASHBOARD_SLUG = "{{ dashboard.slug }}";
@@ -385,6 +515,7 @@
 <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
 
 <script src="{% static 'sheets_reports/js/board_editor/base-widget.js' %}"></script>
 <script src="{% static 'sheets_reports/js/board_editor/widget-registry.js' %}"></script>

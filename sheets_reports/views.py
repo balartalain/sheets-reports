@@ -8,9 +8,11 @@ from django.shortcuts import get_object_or_404, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from sheets_reports.models import Dashboard, DashboardUtilFunction, WidgetInstance
+from sheets_reports.models import CalculatedColumn, Dashboard, DashboardUtilFunction, WidgetInstance
+from sheets_reports.utils.cache import get_cached_tables
 from sheets_reports.utils.generate_widget_ia import generate_widget_code as generate_code_from_prompt
 from sheets_reports.utils.generate_widget_ia import generate_custom_util as generate_custom_util_from_prompt
+from sheets_reports.utils.generate_widget_ia import generate_calculated_column as generate_calculated_column_from_prompt
 from sheets_reports.utils.registry import get_available_utils
 from sheets_reports.utils.widget_dispatcher import dispatch_widget, execute_widget_code, _sync_filter_field
 
@@ -304,3 +306,171 @@ def generate_custom_util(request, dashboard_id):
         return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse(util_data)
+
+
+def _serialize_calculated_column(cc):
+    return {
+        "id": cc.id,
+        "table_name": cc.table_name,
+        "column_name": cc.column_name,
+        "expression": cc.expression,
+        "description": cc.description,
+        "created_from_prompt": cc.created_from_prompt,
+        "is_active": cc.is_active,
+    }
+
+
+def _validate_calculated_column(dashboard, table_name: str, expression: str) -> str | None:
+    """Prueba la expresión contra los datos reales antes de guardar. Retorna un mensaje de
+    error si falla, o None si es válida."""
+    from sheets_reports.utils.duckdb_query import get_query_connection
+
+    try:
+        con = get_query_connection(dashboard)
+    except Exception as e:
+        return str(e)
+    try:
+        con.execute(f'SELECT ({expression}) FROM "{table_name}" LIMIT 1')
+    except Exception as e:
+        return str(e)
+    finally:
+        con.close()
+    return None
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def dashboard_tables(request, dashboard_id):
+    """GET: lista las tablas del origen de datos del tablero (nombre calificado + columnas),
+    para poblar el selector de tabla al crear una columna calculada."""
+    try:
+        dashboard = Dashboard.objects.get(id=dashboard_id)
+    except Dashboard.DoesNotExist:
+        return JsonResponse({"error": "Dashboard no encontrado"}, status=404)
+
+    connector = dashboard.data_source.get_connector()
+    alias = dashboard.data_source.source_type
+    try:
+        tables = get_cached_tables(dashboard)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+    return JsonResponse([
+        {"table_name": connector.qualified_table_name(t, alias), "columns": t.columns}
+        for t in tables
+    ], safe=False)
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def dashboard_calculated_columns(request, dashboard_id):
+    """GET: lista las columnas calculadas del origen de datos del tablero. POST: guarda una
+    columna calculada nueva (ya generada y revisada), validándola contra los datos reales."""
+    try:
+        dashboard = Dashboard.objects.get(id=dashboard_id)
+    except Dashboard.DoesNotExist:
+        return JsonResponse({"error": "Dashboard no encontrado"}, status=404)
+
+    if request.method == "GET":
+        columns = dashboard.data_source.calculated_columns.all()
+        return JsonResponse([_serialize_calculated_column(c) for c in columns], safe=False)
+
+    data = _get_request_data(request)
+    table_name = data.get("table_name", "")
+    expression = data.get("expression", "")
+
+    error = _validate_calculated_column(dashboard, table_name, expression)
+    if error:
+        return JsonResponse({"error": f"La expresión no es válida: {error}"}, status=400)
+
+    try:
+        cc = CalculatedColumn.objects.create(
+            data_source=dashboard.data_source,
+            table_name=table_name,
+            column_name=data.get("column_name", ""),
+            expression=expression,
+            description=data.get("description", ""),
+            created_from_prompt=data.get("prompt", ""),
+        )
+    except IntegrityError:
+        return JsonResponse({
+            "error": f"Ya existe una columna calculada llamada '{data.get('column_name', '')}' en esta tabla."
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+    from sheets_reports.utils.duckdb_query import invalidate_database
+    invalidate_database(dashboard.data_source)
+
+    return JsonResponse(_serialize_calculated_column(cc), status=201)
+
+
+@csrf_exempt
+@require_http_methods(["PUT", "DELETE"])
+def calculated_column_detail(request, cc_id):
+    """PUT: actualiza una columna calculada (revalidándola). DELETE: la elimina. En ambos
+    casos invalida la caché DuckDB del origen para que el cambio se vea en el próximo pedido."""
+    try:
+        cc = CalculatedColumn.objects.get(id=cc_id)
+    except CalculatedColumn.DoesNotExist:
+        return JsonResponse({"error": "Columna calculada no encontrada"}, status=404)
+
+    from sheets_reports.utils.duckdb_query import invalidate_database
+
+    if request.method == "DELETE":
+        cc.delete()
+        invalidate_database(cc.data_source)
+        return JsonResponse({"deleted": True})
+
+    data = _get_request_data(request)
+    table_name = data.get("table_name", cc.table_name)
+    expression = data.get("expression", cc.expression)
+
+    if "table_name" in data or "expression" in data:
+        dashboard = cc.data_source.dashboards.first()
+        if dashboard is None:
+            return JsonResponse({"error": "El origen de datos no tiene ningún tablero asociado para validar la expresión."}, status=400)
+        error = _validate_calculated_column(dashboard, table_name, expression)
+        if error:
+            return JsonResponse({"error": f"La expresión no es válida: {error}"}, status=400)
+
+    for field in ("table_name", "column_name", "expression", "description", "is_active"):
+        if field in data:
+            setattr(cc, field, data[field])
+    try:
+        cc.save()
+    except IntegrityError:
+        return JsonResponse({"error": f"Ya existe una columna calculada llamada '{cc.column_name}' en esta tabla."}, status=400)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+    invalidate_database(cc.data_source)
+    return JsonResponse(_serialize_calculated_column(cc))
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def generate_calculated_column(request, dashboard_id):
+    """POST: genera (o modifica) la expresión SQL de una columna calculada a partir de un
+    prompt, vía Gemini. No la guarda: la retorna para que el usuario la revise antes de
+    guardarla."""
+    try:
+        dashboard = Dashboard.objects.get(id=dashboard_id)
+    except Dashboard.DoesNotExist:
+        return JsonResponse({"error": "Dashboard no encontrado"}, status=404)
+
+    data = _get_request_data(request)
+    prompt = (data.get("prompt") or "").strip()
+    table_name = (data.get("table_name") or "").strip()
+    if not prompt:
+        return JsonResponse({"error": "prompt requerido"}, status=400)
+    if not table_name:
+        return JsonResponse({"error": "table_name requerido"}, status=400)
+    existing = data.get("existing")
+
+    try:
+        column_data = generate_calculated_column_from_prompt(prompt, dashboard, table_name, existing=existing)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse(column_data)

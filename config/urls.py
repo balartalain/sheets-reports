@@ -35,4 +35,8 @@ urlpatterns = [
     path('api/dashboard/<int:dashboard_id>/utils/', views.dashboard_util_functions, name='dashboard_util_functions'),
     path('api/dashboard/<int:dashboard_id>/utils/generate/', views.generate_custom_util, name='generate_custom_util'),
     path('api/util-function/<int:util_id>/', views.util_function_detail, name='util_function_detail'),
+    path('api/dashboard/<int:dashboard_id>/tables/', views.dashboard_tables, name='dashboard_tables'),
+    path('api/dashboard/<int:dashboard_id>/calculated-columns/', views.dashboard_calculated_columns, name='dashboard_calculated_columns'),
+    path('api/dashboard/<int:dashboard_id>/calculated-columns/generate/', views.generate_calculated_column, name='generate_calculated_column'),
+    path('api/calculated-column/<int:cc_id>/', views.calculated_column_detail, name='calculated_column_detail'),
 ]

@@ -153,6 +153,43 @@ Respondé ÚNICAMENTE con un objeto JSON (sin markdown, sin ```) con estas clave
   docstring opcional, sin decoradores, sin imports, y sin ```.
 """
 
+CALCULATED_COLUMN_SYSTEM_INSTRUCTION = """\
+Eres un generador de expresiones SQL para DuckDB que crean columnas calculadas a partir de
+columnas ya existentes en una tabla de un dashboard de reportes.
+
+Reglas:
+- Tu respuesta va en el campo "expression": debe ser ÚNICAMENTE una expresión SQL de DuckDB
+  válida — NO una sentencia completa (nada de SELECT, FROM, CREATE, ni punto y coma). Tiene
+  que poder usarse tal cual dentro de: SELECT (tu_expresión) AS "nombre_columna" FROM tabla.
+- Podés usar CASE WHEN ... END, funciones de texto (LOWER, UPPER, LIKE, REGEXP_MATCHES,
+  TRIM, CONCAT), de fecha (CAST/TRY_CAST AS TIMESTAMP, date_trunc, strftime), aritmética,
+  COALESCE, etc. — cualquier expresión válida de DuckDB.
+- Referenciá SIEMPRE las columnas reales entre comillas dobles, usando el nombre EXACTO que
+  se te muestra abajo (ej. "Período que está cursando"), nunca inventado.
+- Si una columna con datos de fecha está guardada como texto (VARCHAR), usá
+  TRY_CAST(columna AS TIMESTAMP) antes de aplicar funciones de fecha.
+- "column_name": elegí un nombre corto y descriptivo en español, como los ya usados en la
+  tabla (ej. "Nivel"). Si se te muestra una columna ya existente para modificar, conservá su
+  nombre salvo que el prompt pida explícitamente cambiarlo.
+- "description": 1-2 frases en español, en lenguaje NO técnico, explicando qué representa la
+  columna resultante (se usa después para que la IA de generación de widgets entienda para
+  qué sirve, y para mostrarla en la UI de gestión).
+
+Respondé ÚNICAMENTE con un objeto JSON (sin markdown, sin ```) con las claves "column_name",
+"expression" y "description".
+"""
+
+CALCULATED_COLUMN_RESPONSE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "column_name": {"type": "string"},
+        "expression": {"type": "string"},
+        "description": {"type": "string"},
+    },
+    "required": ["column_name", "expression", "description"],
+}
+
+
 CUSTOM_UTIL_RESPONSE_SCHEMA = {
     "type": "object",
     "properties": {
@@ -238,6 +275,10 @@ def _build_source_context(dashboard, prompt: str) -> str:
 
     hinted = _detect_table_name(prompt, [t.name for t in tables])
 
+    calc_cols_by_table = {}
+    for cc in dashboard.data_source.calculated_columns.filter(is_active=True):
+        calc_cols_by_table.setdefault(cc.table_name, []).append(cc)
+
     lines = []
     for table in tables:
         qualified_name = connector.qualified_table_name(table, alias)
@@ -248,6 +289,12 @@ def _build_source_context(dashboard, prompt: str) -> str:
             lines.append(f"  Filas de ejemplo: {table.sample_rows}")
         else:
             lines.append("  (vacía)")
+        for cc in calc_cols_by_table.get(qualified_name, []):
+            lines.append(
+                f"  Columna calculada ya incluida automáticamente (no hace falta ninguna "
+                f"función, ya está en el SELECT * como cualquier otra columna): "
+                f"\"{cc.column_name}\"" + (f" — {cc.description}" if cc.description else "")
+            )
     return "\n".join(lines)
 
 
@@ -400,4 +447,71 @@ def generate_custom_util(prompt: str, dashboard, existing_util: dict | None = No
 
     data = json.loads(text)
     data["source_code"] = _strip_markdown_fences(data.get("source_code", ""))
+    return data
+
+
+def _build_table_context(dashboard, table_name: str) -> str:
+    """Arma el bloque de columnas + filas de ejemplo de UNA tabla puntual (por su nombre
+    calificado), para mostrárselo a Gemini al generar una columna calculada sobre ella."""
+    connector = dashboard.data_source.get_connector()
+    alias = dashboard.data_source.source_type
+    try:
+        tables = get_cached_tables(dashboard)
+    except Exception as e:
+        return f"(no se pudo leer la estructura del origen de datos: {e})"
+    for table in tables:
+        if connector.qualified_table_name(table, alias) == table_name:
+            if not table.columns:
+                return "(la tabla está vacía)"
+            return f"Columnas: {table.columns}\nFilas de ejemplo: {table.sample_rows}"
+    return f"(no se encontró la tabla '{table_name}')"
+
+
+def generate_calculated_column(prompt: str, dashboard, table_name: str, existing: dict | None = None) -> dict:
+    """
+    Genera (o modifica) la expresión SQL de DuckDB de una columna calculada sobre una tabla
+    puntual del origen de datos del tablero, a partir de una descripción en lenguaje natural.
+    `existing`, si se pasa, es un dict con al menos `column_name`/`expression` de la columna
+    actual (ej. la que se está editando): se le muestra a Gemini para que la modifique sin
+    perder su nombre. Retorna un dict con column_name/expression/description, listo para
+    revisar y guardar en un CalculatedColumn (ver sheets_reports.utils.duckdb_query, que la
+    hornea como VIEW en la tabla física cacheada).
+    """
+    table_context = _build_table_context(dashboard, table_name)
+
+    existing_block = ""
+    if existing and existing.get("expression"):
+        existing_block = (
+            f"Columna calculada YA existente (modificala si el prompt lo pide; si no, dejala "
+            f"tal cual en tu respuesta):\nnombre: {existing.get('column_name', '')}\n"
+            f"expresión:\n{existing['expression']}\n\n"
+        )
+
+    full_prompt = (
+        f"Tabla: '{table_name}'\n{table_context}\n\n"
+        f"{existing_block}"
+        f"Descripción del usuario:\n{prompt}"
+    )
+
+    api_key = settings.GEMINI_API_KEY
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY no está configurado en .env")
+
+    client = genai.Client(api_key=api_key)
+    response = client.models.generate_content(
+        model=DEFAULT_MODEL,
+        contents=full_prompt,
+        config={
+            "system_instruction": CALCULATED_COLUMN_SYSTEM_INSTRUCTION,
+            "response_mime_type": "application/json",
+            "response_schema": CALCULATED_COLUMN_RESPONSE_SCHEMA,
+        },
+    )
+
+    text = (response.text or "").strip()
+    if not text:
+        raise ValueError("Gemini no devolvió una columna calculada.")
+
+    data = json.loads(text)
+    data["expression"] = _strip_markdown_fences(data.get("expression", "")).strip()
     return data
