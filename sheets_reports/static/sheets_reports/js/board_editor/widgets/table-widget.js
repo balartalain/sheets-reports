@@ -4,14 +4,15 @@
       "currency": { hozAlign: "right", formatter: "money", formatterParams: { precision: 2, thousand: "," } },
       "percent": {
           hozAlign: "right",
-          formatter: (cell) => cell.getValue() != null ? Number(cell.getValue()).toFixed(2) + "%" : "-"
+          formatter: (cell) => cell.getValue() != null ? Number(cell.getValue()) + "%" : "-"
       },
       "progress": {
           formatter: "progress",
+          hozAlign: "left",
           formatterParams: {
             min: 0, max: 100,
             color: ["#ef4444", "#f59e0b", "#10b981"],
-            legend: function(value) { return Number(value).toFixed(2) + "%"; }
+            legend: function(value) { return Number(value) + "%"; }
           }
       }
   };
