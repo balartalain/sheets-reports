@@ -43,9 +43,10 @@
             }).join('')}
           </div>`
         : '';
+      const formattedMainValue = typeof value === 'number' ? value.toLocaleString() : value;
       container.className = 'flex flex-col items-center justify-center h-full pb-3';
       container.innerHTML = `
-        <span class="text-2xl font-black text-ink tracking-tight">${Number(value).toLocaleString()}</span>
+        <span class="text-2xl font-black text-ink tracking-tight">${formattedMainValue}</span>
         <span class="text-[11px] font-semibold text-ink/40 mt-0.5 uppercase tracking-wide">${label}</span>
         ${secondaryHTML}
       `;
