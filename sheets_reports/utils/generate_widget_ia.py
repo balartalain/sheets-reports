@@ -96,6 +96,22 @@ prompt pida cambiar explícitamente, y modificá únicamente eso.
 """
 
 
+SUMMARY_SYSTEM_INSTRUCTION = """\
+Eres un redactor que traduce el código técnico de un widget de un dashboard a una
+explicación breve y NO TÉCNICA, para que cualquier persona sin conocimientos de
+programación entienda, con solo leerla, qué está mostrando ese widget.
+
+Reglas:
+- Una sola oración, en español, en tono neutro, de no más de ~160 caracteres.
+- NUNCA menciones SQL, código, Python, DuckDB, "chart_type", ni nombres crudos de
+  tablas/columnas. Traducilos a lenguaje de negocio (ej.: en vez de
+  "SUM(ventas) GROUP BY region", decí "el total de ventas por región").
+- Si el código filtra o agrupa por algo (región, mes, categoría, etc.), mencionalo.
+- No repitas el título tal cual si ya es autoexplicativo: agregá información útil.
+- No uses comillas ni markdown. Respondé ÚNICAMENTE con el texto del resumen.
+"""
+
+
 CUSTOM_UTIL_SYSTEM_INSTRUCTION = """\
 Eres un generador de funciones utilitarias reutilizables para un dashboard de reportes. Cada
 función que generes podrá ser llamada, por su nombre, desde el código de cualquier widget de
@@ -277,6 +293,46 @@ def generate_widget_code(prompt: str, dashboard, chart_type: str = "", existing_
     )
 
     return _call_gemini(full_prompt, _build_system_instruction(dashboard))
+
+
+def generate_widget_summary(code: str, chart_type: str = "", prompt: str = "") -> str:
+    """
+    Genera, vía Gemini, una explicación breve y no técnica (una oración) de qué muestra
+    un widget ya generado, a partir de su código Python final y su chart_type. No usa
+    _build_source_context: el código ya nombra tablas/columnas/agregaciones reales, es
+    contexto suficiente, y esta función corre en un hilo de background fuera del ciclo
+    de vida de una request HTTP (ver widget_dispatcher.dispatch_widget) — conviene
+    mantenerla liviana y sin dependencias extra de infraestructura del tablero.
+    """
+    if not code.strip():
+        raise ValueError("No hay código para resumir.")
+
+    prompt_block = (
+        f"Descripción original pedida por el usuario al crear este widget:\n{prompt}\n\n"
+        if prompt else ""
+    )
+    full_prompt = (
+        f"Tipo de widget: {chart_type or '(no especificado)'}\n\n"
+        f"{prompt_block}"
+        f"Código Python que ejecuta este widget (define qué datos trae y cómo los "
+        f"agrupa/filtra):\n{code}"
+    )
+
+    api_key = settings.GEMINI_API_KEY
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY no está configurado en .env")
+
+    client = genai.Client(api_key=api_key)
+    response = client.models.generate_content(
+        model=DEFAULT_MODEL,
+        contents=full_prompt,
+        config={"system_instruction": SUMMARY_SYSTEM_INSTRUCTION},
+    )
+
+    text = (response.text or "").strip().strip('"')
+    if not text:
+        raise ValueError("Gemini no devolvió un resumen.")
+    return text
 
 
 def generate_custom_util(prompt: str, dashboard, existing_util: dict | None = None) -> dict:

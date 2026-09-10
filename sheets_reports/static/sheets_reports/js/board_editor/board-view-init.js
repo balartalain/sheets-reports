@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     id: w.id,
     title: w.title,
     code: w.code || '',
+    summary: w.summary || '',
     order: w.order ?? 0,
     ...(w.properties || {}),
   }));

@@ -193,6 +193,25 @@
       </div>`;
     }
 
+    // Pie de resumen no técnico (generado por IA), mostrado al fondo de la tarjeta del
+    // widget cuando hay uno guardado. Fondo sutil + separador para diferenciarlo del
+    // contenido del widget. Altura FIJA (2 líneas siempre, sin importar el largo real del
+    // texto): así SUMMARY_FOOTER_HEIGHT puede sumarse a la altura de la tarjeta de forma
+    // exacta sin robarle espacio al gráfico (que rompía el resize de ApexCharts al
+    // encogerse después de que este ya midió su contenedor).
+    static SUMMARY_FOOTER_HEIGHT = 50;
+
+    static summaryFooterHTML(summary) {
+      if (!summary) return '';
+      return `<div class="mt-2 -mx-4 -mb-4 px-4 pt-2 pb-3 border-t border-line bg-black/[0.065] rounded-b-xl flex items-start gap-1.5" style="height:${BaseWidget.SUMMARY_FOOTER_HEIGHT}px; box-sizing:border-box;">
+        <p class="text-[11px] text-black/[0.55] m-0" style="line-height:14px; height:28px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${BaseWidget.escapeHTML(summary)}</p>
+      </div>`;
+    }
+
+    static heightWithSummaryFooter(height, summary) {
+      return height + (summary ? BaseWidget.SUMMARY_FOOTER_HEIGHT : 0);
+    }
+
     constructor(raw = {}) {
       const defaults = this.constructor.defaults;
       this.id = raw.id;
@@ -200,6 +219,7 @@
       this.chart_type = this.constructor.type;
       this.prompt = raw.prompt || '';
       this.code = raw.code || '';
+      this.summary = raw.summary || '';
       this.width = raw.width || defaults.width;
       this.height = raw.height ?? defaults.height;
       this.startCol = raw.startCol
@@ -235,7 +255,7 @@
     buildStandardCardElement() {
       const el = document.createElement('div');
       el.className = `col-span-12 ${this.width}${this.startCol ? ' ' + this.startCol : ''} bg-white border border-line rounded-xl shadow-sm p-4 flex flex-col justify-between relative group`;
-      el.style.height = this.height + 'px';
+      el.style.height = BaseWidget.heightWithSummaryFooter(this.height, this.summary) + 'px';
       el.style.setProperty('--ghost-span', this._ghostSpanFromWidth());
       el.dataset.widgetId = this.id;
       el.dataset.type = this.chart_type;
@@ -246,6 +266,7 @@
         </div>
         <div id="chart-${this.id}" class="flex-1 w-full min-h-0"></div>
         ${this.loaderOverlayHTML()}
+        ${BaseWidget.summaryFooterHTML(this.summary)}
         ${BaseWidget.actionButtonsHTML()}
         <div class="resize-handle absolute bottom-1 right-1 w-4 h-4 cursor-se-resize z-10 opacity-60 hover:opacity-100 transition">
           <svg viewBox="0 0 10 10" class="w-full h-full text-ink/30" fill="none">
@@ -272,13 +293,14 @@
     buildReadOnlyElement() {
       const el = document.createElement('div');
       el.className = `col-span-12 ${this.width}${this.startCol ? ' ' + this.startCol : ''} bg-white border border-line rounded-xl shadow-sm p-4 flex flex-col justify-between relative`;
-      el.style.height = this.height + 'px';
+      el.style.height = BaseWidget.heightWithSummaryFooter(this.height, this.summary) + 'px';
       el.dataset.widgetId = this.id;
       el.dataset.type = this.chart_type;
       const titleHTML = this.title
         ? `<div class="flex items-center border-line pb-2 mb-2"><span class="text-[10px] font-bold uppercase tracking-wider text-ink/40">${BaseWidget.escapeHTML(this.title)}</span></div>`
         : '';
       el.innerHTML = `${titleHTML}<div id="chart-${this.id}" class="flex-1 w-full min-h-0"></div>${this.loaderOverlayHTML()}
+        ${BaseWidget.summaryFooterHTML(this.summary)}
         <div class="actions-slot absolute top-2 right-2 z-30 flex items-center gap-1"></div>`;
       return el;
     }
@@ -334,8 +356,14 @@
         this._chart.destroy();
         this._chart = null;
       }
-      container.innerHTML = '';
-      this._chart = new ApexCharts(container, options);
+      // ApexCharts pisa el min-height del elemento donde se monta (lo fuerza a "unset"),
+      // lo que anula nuestro min-h-0 y le impide encogerse dentro del flex-col de la
+      // tarjeta (por ej. para dejarle lugar al pie de resumen). Le damos un div interno
+      // para montar, así esa mutación cae sobre un hijo normal y nunca sobre `container`
+      // (el flex item real).
+      container.innerHTML = '<div style="height:100%;width:100%;"></div>';
+      const mountEl = container.firstElementChild;
+      this._chart = new ApexCharts(mountEl, options);
       return this._chart.render();
     }
 
@@ -479,8 +507,12 @@
 
       const onMouseUp = () => {
         el.classList.add('is-snapping');
-        this.height = clamp(Math.round(el.offsetHeight/stepHeight)*stepHeight, minHeight, 3000);//Max height 3000px
-        el.style.height = this.height + 'px';
+        // el.offsetHeight incluye el pie de resumen (si hay uno) sumado en buildElement();
+        // hay que descontarlo antes de guardar this.height, o se acumularía +SUMMARY_FOOTER_HEIGHT
+        // en this.height cada vez que se redimensiona un widget con resumen.
+        const footerOffset = this.summary ? BaseWidget.SUMMARY_FOOTER_HEIGHT : 0;
+        this.height = clamp(Math.round((el.offsetHeight - footerOffset)/stepHeight)*stepHeight, minHeight, 3000);//Max height 3000px
+        el.style.height = BaseWidget.heightWithSummaryFooter(this.height, this.summary) + 'px';
         this._dirty = true;
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);

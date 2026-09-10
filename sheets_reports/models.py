@@ -159,6 +159,15 @@ class WidgetInstance(models.Model):
         default="",
         help_text="Último prompt en lenguaje natural usado para generar `code` vía IA.",
     )
+    summary = models.TextField(
+        blank=True,
+        default="",
+        help_text=(
+            "Resumen breve, en lenguaje no técnico, generado por IA, de qué muestra este "
+            "widget (usado como tooltip). Se limpia y se regenera automáticamente cada vez "
+            "que `code` cambia; ver widget_dispatcher.dispatch_widget."
+        ),
+    )
     properties = models.JSONField(
         default=dict,
         blank=True,

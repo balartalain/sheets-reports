@@ -87,7 +87,7 @@ def dashboard_widgets(request, dashboard_id):
         # No se incluye "prompt": es de un solo uso (se limpia tras generar, ver
         # generateWidgetCode en dashboard-store.js) y el drawer nunca lo muestra al abrir.
         widgets = dashboard.widgets.all().values(
-            "id", "title", "chart_type", "code", "properties", "order"
+            "id", "title", "chart_type", "code", "summary", "properties", "order"
         )
         response = JsonResponse(list(widgets), safe=False)
 
@@ -114,6 +114,7 @@ def dashboard_widgets(request, dashboard_id):
             "chart_type": widget.chart_type,
             "code": widget.code,
             "prompt": widget.prompt,
+            "summary": widget.summary,
             "properties": widget.properties,
             "order": widget.order,
         }, status=201)
@@ -138,6 +139,8 @@ def widget_detail(request, widget_id):
         data = _get_request_data(request)
         for field in ("title", "chart_type", "code", "prompt", "properties", "order"):
             if field in data:
+                if field == "code" and data["code"] != widget.code:
+                    widget.summary = ""
                 setattr(widget, field, data[field])
         widget.save()
         return JsonResponse({
@@ -146,6 +149,7 @@ def widget_detail(request, widget_id):
             "chart_type": widget.chart_type,
             "code": widget.code,
             "prompt": widget.prompt,
+            "summary": widget.summary,
             "properties": widget.properties,
             "order": widget.order,
         })

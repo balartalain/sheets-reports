@@ -2,11 +2,13 @@ import builtins
 import json
 import logging
 import sys
+import threading
 
 from django.core.serializers.json import DjangoJSONEncoder
 from django.http import JsonResponse
 
 from sheets_reports.models import WidgetInstance
+from sheets_reports.utils.generate_widget_ia import generate_widget_summary
 from sheets_reports.utils.registry import get_system_namespace, util
 
 logger = logging.getLogger(__name__)
@@ -218,6 +220,35 @@ def _sync_filter_field(widget, response: JsonResponse) -> None:
         widget.save(update_fields=["properties"])
 
 
+_summary_backfill_inflight = set()
+_summary_backfill_lock = threading.Lock()
+
+
+def _spawn_summary_backfill(widget) -> None:
+    """
+    Genera y persiste widget.summary en background (best-effort, no bloquea la respuesta
+    de datos del widget). Se dispara desde dispatch_widget() -nunca desde
+    execute_widget_code()- para no afectar el probe efímero de campos de filtro en
+    views.generate_widget_code (ese widget puede no tener id todavía).
+    """
+    with _summary_backfill_lock:
+        if widget.id in _summary_backfill_inflight:
+            return
+        _summary_backfill_inflight.add(widget.id)
+
+    def _run():
+        try:
+            summary = generate_widget_summary(widget.code, widget.chart_type, widget.prompt)
+            WidgetInstance.objects.filter(id=widget.id).update(summary=summary)
+        except Exception:
+            logger.exception("No se pudo generar el resumen del widget %s", widget.id)
+        finally:
+            with _summary_backfill_lock:
+                _summary_backfill_inflight.discard(widget.id)
+
+    threading.Thread(target=_run, daemon=True).start()
+
+
 def dispatch_widget(request, widget_id: int) -> JsonResponse:
     """
     Obtiene el widget y ejecuta su código guardado en `widget.code`.
@@ -242,5 +273,8 @@ def dispatch_widget(request, widget_id: int) -> JsonResponse:
 
     if widget.chart_type == "filter":
         _sync_filter_field(widget, response)
+
+    if response.status_code == 200 and not widget.summary:
+        _spawn_summary_backfill(widget)
 
     return response
