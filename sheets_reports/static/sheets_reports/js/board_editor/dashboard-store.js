@@ -1,4 +1,4 @@
-const AI_FETCH_TIMEOUT_MS = 60000;
+const AI_FETCH_TIMEOUT_MS = 120000;
 
 // Como base-widget.js:fetchAndRender, pero para las llamadas de generación con IA del store:
 // aborta si tarda demasiado y nunca truena por JSON inválido (p. ej. una página HTML de error
