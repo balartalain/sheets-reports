@@ -1,3 +1,20 @@
+const AI_FETCH_TIMEOUT_MS = 60000;
+
+// Como base-widget.js:fetchAndRender, pero para las llamadas de generación con IA del store:
+// aborta si tarda demasiado y nunca truena por JSON inválido (p. ej. una página HTML de error
+// devuelta por un timeout de gateway/proxy) — deja que quien llama decida el mensaje de error.
+async function fetchJsonSafe(url, options = {}, timeoutMs = AI_FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, { ...options, signal: controller.signal });
+    const data = await r.json().catch(() => null);
+    return { r, data };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 document.addEventListener('alpine:init', () => {
   Alpine.store('dashboard', {
     widgets: [],
@@ -172,7 +189,7 @@ document.addEventListener('alpine:init', () => {
       this.drawerGenerating = true;
       this.drawerGenerateError = '';
       try {
-        const r = await fetch(apiUrl(`/api/dashboard/${this.dashboardId}/generate-widget-code/`), {
+        const { r, data } = await fetchJsonSafe(apiUrl(`/api/dashboard/${this.dashboardId}/generate-widget-code/`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -182,13 +199,16 @@ document.addEventListener('alpine:init', () => {
             existing_code: this.drawerDraft.code,
           }),
         });
-        const data = await r.json();
-        if (!r.ok) throw new Error(data.error || 'Error generando código');
+        if (!r.ok || !data) {
+          throw new Error((data && data.error) || 'El servidor no respondió correctamente (puede que la IA haya tardado demasiado). Intenta de nuevo.');
+        }
         this.drawerDraft.code = data.code;
         if (data.field) this.drawerDraft.filterField = data.field;
         this.drawerDraft.prompt = '';
       } catch (e) {
-        this.drawerGenerateError = e.message;
+        this.drawerGenerateError = e.name === 'AbortError'
+          ? 'La IA tardó demasiado en responder. Intenta de nuevo.'
+          : e.message;
       } finally {
         this.drawerGenerating = false;
       }
@@ -244,7 +264,7 @@ document.addEventListener('alpine:init', () => {
       this.utilGenerating = true;
       this.utilGenerateError = '';
       try {
-        const r = await fetch(apiUrl(`/api/dashboard/${this.dashboardId}/utils/generate/`), {
+        const { r, data } = await fetchJsonSafe(apiUrl(`/api/dashboard/${this.dashboardId}/utils/generate/`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -254,15 +274,18 @@ document.addEventListener('alpine:init', () => {
               : null,
           }),
         });
-        const data = await r.json();
-        if (!r.ok) throw new Error(data.error || 'Error generando la función');
+        if (!r.ok || !data) {
+          throw new Error((data && data.error) || 'El servidor no respondió correctamente (puede que la IA haya tardado demasiado). Intenta de nuevo.');
+        }
         Object.assign(this.utilDraft, {
           name: data.name, signature: data.signature,
           category: data.category, description: data.description, source_code: data.source_code,
         });
         this.utilDraft.prompt = '';
       } catch (e) {
-        this.utilGenerateError = e.message;
+        this.utilGenerateError = e.name === 'AbortError'
+          ? 'La IA tardó demasiado en responder. Intenta de nuevo.'
+          : e.message;
       } finally {
         this.utilGenerating = false;
       }
@@ -341,7 +364,7 @@ document.addEventListener('alpine:init', () => {
       this.calcColGenerating = true;
       this.calcColGenerateError = '';
       try {
-        const r = await fetch(apiUrl(`/api/dashboard/${this.dashboardId}/calculated-columns/generate/`), {
+        const { r, data } = await fetchJsonSafe(apiUrl(`/api/dashboard/${this.dashboardId}/calculated-columns/generate/`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -352,14 +375,17 @@ document.addEventListener('alpine:init', () => {
               : null,
           }),
         });
-        const data = await r.json();
-        if (!r.ok) throw new Error(data.error || 'Error generando la columna calculada');
+        if (!r.ok || !data) {
+          throw new Error((data && data.error) || 'El servidor no respondió correctamente (puede que la IA haya tardado demasiado). Intenta de nuevo.');
+        }
         Object.assign(draft, {
           column_name: data.column_name, expression: data.expression, description: data.description,
         });
         draft.prompt = '';
       } catch (e) {
-        this.calcColGenerateError = e.message;
+        this.calcColGenerateError = e.name === 'AbortError'
+          ? 'La IA tardó demasiado en responder. Intenta de nuevo.'
+          : e.message;
       } finally {
         this.calcColGenerating = false;
       }

@@ -45,7 +45,10 @@ def widget_data(request, widget_id):
 def _get_request_data(request):
     """Extrae datos del request sin importar el método HTTP o content-type."""
     if request.content_type and "application/json" in request.content_type:
-        return json.loads(request.body)
+        try:
+            return json.loads(request.body) if request.body else {}
+        except (json.JSONDecodeError, AttributeError):
+            return {}
     if request.method == "POST":
         return request.POST
     if request.method == "PUT":
