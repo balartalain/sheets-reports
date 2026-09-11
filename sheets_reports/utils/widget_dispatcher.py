@@ -249,6 +249,27 @@ def _spawn_summary_backfill(widget) -> None:
     threading.Thread(target=_run, daemon=True).start()
 
 
+def _inject_summary(widget, response: JsonResponse) -> JsonResponse:
+    """
+    Agrega `summary` al JSON de datos del widget, si ya está generado y persistido. Sin
+    esto, el frontend solo se entera del resumen a través de la lista inicial de widgets
+    (/api/dashboard/<id>/widgets/, pedida una sola vez al cargar la página) -- un widget
+    cuyo resumen se generó recién ahora en background (_spawn_summary_backfill) o que se
+    cargó por primera vez después de esa lista (scroll/lazy-load) no lo mostraría hasta un
+    reload completo posterior.
+    """
+    if response.status_code != 200 or not widget.summary:
+        return response
+    try:
+        data = json.loads(response.content)
+    except (ValueError, TypeError):
+        return response
+    if not isinstance(data, dict):
+        return response
+    data["summary"] = widget.summary
+    return JsonResponse(data)
+
+
 def dispatch_widget(request, widget_id: int) -> JsonResponse:
     """
     Obtiene el widget y ejecuta su código guardado en `widget.code`.
@@ -277,4 +298,4 @@ def dispatch_widget(request, widget_id: int) -> JsonResponse:
     if response.status_code == 200 and not widget.summary:
         _spawn_summary_backfill(widget)
 
-    return response
+    return _inject_summary(widget, response)

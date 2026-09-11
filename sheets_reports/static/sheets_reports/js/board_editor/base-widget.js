@@ -37,6 +37,8 @@
 
   class BaseWidget {
     static type = null;
+    // FilterWidget no tiene lugar en su layout para el pie de resumen (lo desactiva).
+    static supportsSummary = true;
     static palette = {
       icon: '❔',
       label: 'Widget',
@@ -203,7 +205,7 @@
 
     static summaryFooterHTML(summary) {
       if (!summary) return '';
-      return `<div class="mt-2 -mx-4 -mb-4 px-4 pt-2 pb-3 border-t border-line bg-black/[0.065] rounded-b-xl flex items-start gap-1.5" style="height:${BaseWidget.SUMMARY_FOOTER_HEIGHT}px; box-sizing:border-box;">
+      return `<div class="widget-summary-footer mt-2 -mx-4 -mb-4 px-4 pt-2 pb-3 border-t border-line bg-black/[0.065] rounded-b-xl flex items-start gap-1.5" style="height:${BaseWidget.SUMMARY_FOOTER_HEIGHT}px; box-sizing:border-box;">
         <p class="text-[11px] text-black/[0.55] m-0" style="line-height:14px; height:28px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${BaseWidget.escapeHTML(summary)}</p>
       </div>`;
     }
@@ -322,6 +324,26 @@
       if (loader) loader.classList.toggle('hidden', !isLoading);
     }
 
+    // Aplica un `summary` recién llegado en la respuesta de datos (generado en background
+    // por _spawn_summary_backfill del lado del servidor, ver widget_dispatcher.py). El pie
+    // se "horneó" en el HTML de la tarjeta con el `summary` que tenía la lista inicial de
+    // widgets al cargar la página -- si en ese momento todavía no existía (primera vez que
+    // se ve este widget, o llegó por lazy-load después de esa lista), esto lo agrega/actualiza
+    // sin esperar a un reload completo.
+    _applySummary(summary) {
+      if (!this.constructor.supportsSummary || !summary || summary === this.summary || !this.el) return;
+      this.summary = summary;
+      const footerHTML = BaseWidget.summaryFooterHTML(summary);
+      const existingFooter = this.el.querySelector('.widget-summary-footer');
+      if (existingFooter) {
+        existingFooter.outerHTML = footerHTML;
+      } else {
+        this.el.insertAdjacentHTML('beforeend', footerHTML);
+      }
+      this.el.style.height = BaseWidget.heightWithSummaryFooter(this.height, this.summary) + 'px';
+      window.dispatchEvent(new Event('resize'));
+    }
+
     updateChrome() {
       if (!this.el) return;
       const titleEl = this.el.querySelector('.title-display');
@@ -429,6 +451,9 @@
         if (!r.ok) {
           this.renderError(data && data.error ? data.error : `Error ${r.status} al cargar los datos`);
           return;
+        }
+        if (data && typeof data === 'object' && !Array.isArray(data) && data.summary) {
+          this._applySummary(data.summary);
         }
         const container = this.getContentContainer();
         if (container) this.renderContent(container, data);

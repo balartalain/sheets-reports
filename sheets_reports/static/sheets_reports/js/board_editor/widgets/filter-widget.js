@@ -2,6 +2,7 @@
   class FilterWidget extends BaseWidget {
     static type = 'filter';
     static minHeight = 44;
+    static supportsSummary = false;
     static palette = {
       icon: '🔽',
       label: 'Filtro',
