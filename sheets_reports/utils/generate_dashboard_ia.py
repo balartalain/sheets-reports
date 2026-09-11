@@ -1,4 +1,6 @@
 import json
+import queue
+import threading
 
 from django.conf import settings
 from google import genai
@@ -8,6 +10,51 @@ from sheets_reports.utils.generate_widget_ia import (
     _build_source_context,
     generate_widget_code,
 )
+
+# Cada cuántos segundos, como máximo, el stream SSE de generate_board_from_prompt manda un
+# evento mientras espera una llamada a Gemini -- para que un proxy/gateway de por medio (fuera
+# de este repo) no corte la conexión por inactividad si esa llamada tarda más que su timeout de
+# lectura ociosa (ver _run_with_heartbeat).
+HEARTBEAT_INTERVAL_SECONDS = 15
+
+
+def _run_with_heartbeat(fn, *args, **kwargs):
+    """
+    Ejecuta `fn(*args, **kwargs)` en un hilo aparte, yielding un evento heartbeat cada
+    HEARTBEAT_INTERVAL_SECONDS mientras se espera. Un tablero completo hace varias llamadas
+    bloqueantes a Gemini seguidas (una por el plan, una por cada widget); sin esto, el stream
+    puede quedar minutos sin mandar ni un byte, y algún proxy/gateway intermedio lo corta por
+    timeout de conexión ociosa -- eso es lo que el navegador reporta como "Network Error".
+
+    Se usa con `yield from` para poder emitir los heartbeats hacia el cliente Y quedarse con
+    el resultado final de `fn` (vía el valor de retorno del generador, StopIteration.value):
+
+        plan = yield from _run_with_heartbeat(generate_board_plan, user_prompt, dashboard)
+
+    Una excepción de `fn` se re-lanza acá (no queda atrapada en el hilo en el que corrió), para
+    que el try/except de generate_board_from_prompt la siga manejando exactamente igual que
+    antes de este cambio.
+    """
+    result_queue = queue.Queue()
+
+    def _target():
+        try:
+            result_queue.put(("result", fn(*args, **kwargs)))
+        except Exception as e:
+            result_queue.put(("error", e))
+
+    threading.Thread(target=_target, daemon=True).start()
+
+    while True:
+        try:
+            kind, value = result_queue.get(timeout=HEARTBEAT_INTERVAL_SECONDS)
+        except queue.Empty:
+            yield {"event": "heartbeat"}
+            continue
+        if kind == "error":
+            raise value
+        return value
+
 
 BOARD_PLANNER_SYSTEM_INSTRUCTION = """\
 Eres un arquitecto de dashboards. Tu tarea es diseñar la estructura completa de un tablero de
@@ -154,7 +201,7 @@ def generate_board_from_prompt(user_prompt: str, data_source, user):
 
     try:
         yield {"event": "planning"}
-        plan = generate_board_plan(user_prompt, dashboard)
+        plan = yield from _run_with_heartbeat(generate_board_plan, user_prompt, dashboard)
 
         dashboard.title = plan["title"]
         dashboard.save()
@@ -167,7 +214,8 @@ def generate_board_from_prompt(user_prompt: str, data_source, user):
                 if w_data["chart_type"] == "filter":
                     w_data["properties"].pop("height", None)
                 yield {"event": "widget_start", "index": index, "total": total, "title": w_data["title"]}
-                code = generate_widget_code(
+                code = yield from _run_with_heartbeat(
+                    generate_widget_code,
                     prompt=w_data["prompt"],
                     dashboard=dashboard,
                     chart_type=w_data["chart_type"],
