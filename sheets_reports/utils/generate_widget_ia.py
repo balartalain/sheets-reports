@@ -93,18 +93,17 @@ pida explícitamente en su prompt — es el comportamiento por default, no una e
 Solo dejá de aplicar un filtro puntual si el prompt del usuario lo pide explícitamente para
 ESE widget (ej. "este gráfico no debe filtrarse por año").
 
-Para lograrlo, no filtres a mano por un único campo que creas relevante: recorré TODOS los
-filtros activos y armá una condición por cada uno, ej.:
-    active_filters = get_active_filters(request, widget)
-    where_clauses, params = [], []
-    for field, value in active_filters.items():
-        if value:
-            where_clauses.append(f'"{field}" = ?')
-            params.append(value)
-    where_sql = f" WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
-    con.execute(f'SELECT * FROM tabla{where_sql}', params)
+Para lograrlo, usá SIEMPRE la utilidad `build_filters_where` (ver utilidades abajo) en vez de
+armar el WHERE a mano filtrando por un único campo que creas relevante: te devuelve la cláusula
+ya armada y parametrizada con TODOS los filtros activos, ignorando automáticamente los que no
+correspondan a la tabla que estás consultando (no hace falta que vos mismo verifiques cuáles
+aplican):
+    where_sql, params = build_filters_where(con, table_name, request, widget)
+    con.execute(f'SELECT * FROM "{table_name}"{where_sql}', params)
+Solo evitá usarla si el prompt del usuario pide explícitamente que ESE widget no respete algún
+filtro puntual — en ese caso armá el WHERE a mano, excluyendo ese campo.
 El WHERE puede referenciar columnas que no estén en el SELECT sin problema — no hace falta
-que la tabla incluya todas en el resultado final, solo que existan en el origen de datos.
+que la tabla incluya todas en el resultado final, solo que existan en ella.
 
 Los widgets tipo filter NO deben filtrarse a sí mismos — deben mostrar todas las opciones
 disponibles sin aplicar ningún filtro. Usá `get_active_filters` solo para preseleccionar

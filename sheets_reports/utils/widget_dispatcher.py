@@ -124,6 +124,30 @@ def apply_active_filters(df, request, widget):
     return df
 
 
+@util(
+    category="Filtros",
+    description=(
+        "Equivalente a apply_active_filters pero para SQL/DuckDB: arma la cláusula WHERE "
+        "(parametrizada, sin interpolar valores) con los filtros activos que existan como "
+        "columna en `table_name` -- los que no correspondan a esa tabla se ignoran, así un "
+        "mismo filtro del tablero no rompe a los widgets que consultan otras tablas."
+    ),
+    example=(
+        'where_sql, params = build_filters_where(con, table_name, request, widget)\n'
+        'con.execute(f\'SELECT * FROM "{table_name}"{where_sql}\', params)'
+    ),
+)
+def build_filters_where(con, table_name: str, request, widget) -> tuple[str, list]:
+    existing_cols = {row[0] for row in con.execute(f'DESCRIBE "{table_name}"').fetchall()}
+    where_clauses, params = [], []
+    for field, value in get_active_filters(request, widget).items():
+        if value and field in existing_cols:
+            where_clauses.append(f'"{field}" = ?')
+            params.append(value)
+    where_sql = f" WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+    return where_sql, params
+
+
 class CustomUtilError(Exception):
     """Una función utilitaria personalizada del tablero (DashboardUtilFunction) no compiló."""
 
