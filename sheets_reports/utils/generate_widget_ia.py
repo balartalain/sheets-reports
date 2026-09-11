@@ -42,6 +42,16 @@ Usá el nombre EXACTO de tabla de abajo (`google_sheets__Ventas`, `postgres.publ
 `con.execute("SELECT * FROM tabla WHERE region = ?", [valor])`.
 No generes INSERT/UPDATE/DELETE ni DDL (orígenes de solo lectura).
 
+Para condiciones con una LISTA de valores (ej. `WHERE columna IN (...)` / `NOT IN (...)` con
+varios elementos), armá placeholders "?" repetidos y pasá la lista completa como parámetros —
+nunca insertes los valores citándolos a mano dentro del string SQL:
+    placeholders = ", ".join(["?"] * len(valores))
+    con.execute(f'SELECT * FROM tabla WHERE "col" NOT IN ({placeholders})', valores)
+Nunca anides un f-string dentro de otro usando el mismo tipo de comilla que el f-string
+externo — rompe con "f-string: unterminated string" (ej. f'... {f"'{x}'" ...} ...' es
+inválido). Si necesitás armar un string con comillas antes de interpolarlo, calculalo primero
+en una variable aparte y después metela en el f-string.
+
 TODO el procesamiento de datos (conversiones de tipo, filtrado de nulos, agregaciones,
 ordenamiento, formateo de fechas, etc.) debés hacerlo DENTRO de la consulta SQL, no con
 pandas. DuckDB soporta `CAST`, `TRY_CAST`, `SUM`, `COUNT`, `GROUP BY`, `ORDER BY`, `WHERE`,
