@@ -148,6 +148,31 @@ def build_filters_where(con, table_name: str, request, widget) -> tuple[str, lis
     return where_sql, params
 
 
+@util(
+    category="Filtros",
+    description=(
+        "Combina el (where_sql, params) que devuelve build_filters_where con condiciones "
+        "propias del widget, sin que haga falta razonar si where_sql ya trae el WHERE o no "
+        "(esa es la fuente más común de SQL inválido al combinarlos a mano: un AND colgado "
+        "sin WHERE antes, o un WHERE metido entre paréntesis). Siempre da una cláusula WHERE "
+        "final válida, lista para pegar después de FROM \"tabla\"."
+    ),
+    example=(
+        'where_sql, params = build_filters_where(con, table_name, request, widget)\n'
+        'where_sql, params = add_where_conditions(\n'
+        '    where_sql, params, [\'"columna" = ?\'], [\'valor\'],\n'
+        ')\n'
+        'con.execute(f\'SELECT COUNT(*) FROM "{table_name}"{where_sql}\', params)'
+    ),
+)
+def add_where_conditions(where_sql: str, params: list, extra_conditions: list, extra_params: list) -> tuple[str, list]:
+    if not extra_conditions:
+        return where_sql, params
+    combinator = "WHERE" if not where_sql else "AND"
+    combined = f"{where_sql} {combinator} {' AND '.join(extra_conditions)}"
+    return combined, list(params) + list(extra_params)
+
+
 class CustomUtilError(Exception):
     """Una función utilitaria personalizada del tablero (DashboardUtilFunction) no compiló."""
 

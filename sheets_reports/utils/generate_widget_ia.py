@@ -106,17 +106,19 @@ El WHERE puede referenciar columnas que no estén en el SELECT sin problema — 
 que la tabla incluya todas en el resultado final, solo que existan en ella.
 
 Si además necesitás agregar una condición propia del widget (ej. "solo donde la columna X sea
-'Sí'"), NO la concatenes con `AND` a ciegas después de `where_sql` — puede venir vacío (sin
-filtros activos, el caso normal la primera vez que se abre el tablero) y quedaría un `AND`
-colgado sin ningún `WHERE` antes, lo que rompe con
-`Parser Error: syntax error at or near "AND"`. Encadenala con un combinador que dependa de si
-`where_sql` ya trae algo:
+'Sí'"), usá SIEMPRE `add_where_conditions` (ver utilidades abajo) — NUNCA intentes combinarlo
+vos mismo concatenando `AND` o envolviendo `where_sql` entre paréntesis: `where_sql` puede venir
+vacío (sin filtros activos, el caso normal la primera vez que se abre el tablero) o ya traer el
+`WHERE` incluido, y adivinar cuál de los dos casos es rompe con
+`Parser Error: syntax error at or near "AND"` (si concatenás `AND` cuando está vacío) o
+`Parser Error: syntax error at or near "WHERE"` (si lo envolvés entre paréntesis asumiendo que
+es una condición pelada, cuando en realidad ya trae el `WHERE`). `add_where_conditions` resuelve
+esto por vos, sin que tengas que razonar sobre ninguno de los dos casos:
     where_sql, params = build_filters_where(con, table_name, request, widget)
-    condicion_extra = '"columna" = ?'
-    combinator = "WHERE" if not where_sql else "AND"
-    where_sql = f'{where_sql} {combinator} {condicion_extra}'
-    params = params + [valor_extra]
-    con.execute(f'SELECT COUNT(*) FROM "{table_name}" {where_sql}', params)
+    where_sql, params = add_where_conditions(
+        where_sql, params, ['"columna" = ?'], [valor_extra],
+    )
+    con.execute(f'SELECT COUNT(*) FROM "{table_name}"{where_sql}', params)
 
 Los widgets tipo filter NO deben filtrarse a sí mismos — deben mostrar todas las opciones
 disponibles sin aplicar ningún filtro. Usá `get_active_filters` solo para preseleccionar
