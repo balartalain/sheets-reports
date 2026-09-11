@@ -1,4 +1,5 @@
 import json
+import logging
 import queue
 import threading
 
@@ -9,7 +10,10 @@ from sheets_reports.utils.generate_widget_ia import (
     DEFAULT_MODEL,
     _build_source_context,
     generate_widget_code,
+    generate_widget_summary,
 )
+
+logger = logging.getLogger(__name__)
 
 # Cada cuántos segundos, como máximo, el stream SSE de generate_board_from_prompt manda un
 # evento mientras espera una llamada a Gemini -- para que un proxy/gateway de por medio (fuera
@@ -54,6 +58,30 @@ def _run_with_heartbeat(fn, *args, **kwargs):
         if kind == "error":
             raise value
         return value
+
+
+def _generate_widget_code_and_summary(prompt, dashboard, chart_type):
+    """
+    Genera el código del widget y, en la misma llamada (mismo hilo, un solo heartbeat), su
+    resumen no técnico -- así el primer GET a /api/dashboard/<id>/widgets/ que hace el
+    navegador después de crear el tablero ya lo trae poblado, en vez de depender del backfill
+    perezoso de widget_dispatcher._spawn_summary_backfill (que recién se dispara en el PRIMER
+    fetch de datos real de cada widget, ya con la tarjeta construida sin resumen -- por el
+    timing, normalmente ni siquiera llega a tiempo para la actualización en vivo del pie de
+    resumen, así que hacía falta refrescar la página para verlo).
+
+    Si la generación del resumen falla, no aborta la creación del widget -- mismo criterio
+    best-effort que _spawn_summary_backfill (logueado, no propagado): el tablero sigue
+    creándose igual, solo que ese widget puntual queda sin resumen (se genera más adelante,
+    la primera vez que alguien le pida datos reales, como cualquier otro widget).
+    """
+    code = generate_widget_code(prompt=prompt, dashboard=dashboard, chart_type=chart_type)
+    try:
+        summary = generate_widget_summary(code, chart_type, prompt)
+    except Exception:
+        logger.exception("No se pudo generar el resumen de un widget al crear el tablero")
+        summary = ""
+    return code, summary
 
 
 BOARD_PLANNER_SYSTEM_INSTRUCTION = """\
@@ -214,8 +242,8 @@ def generate_board_from_prompt(user_prompt: str, data_source, user):
                 if w_data["chart_type"] == "filter":
                     w_data["properties"].pop("height", None)
                 yield {"event": "widget_start", "index": index, "total": total, "title": w_data["title"]}
-                code = yield from _run_with_heartbeat(
-                    generate_widget_code,
+                code, summary = yield from _run_with_heartbeat(
+                    _generate_widget_code_and_summary,
                     prompt=w_data["prompt"],
                     dashboard=dashboard,
                     chart_type=w_data["chart_type"],
@@ -225,6 +253,7 @@ def generate_board_from_prompt(user_prompt: str, data_source, user):
                     title=w_data["title"],
                     chart_type=w_data["chart_type"],
                     code=code,
+                    summary=summary,
                     prompt=w_data["prompt"],
                     properties=w_data["properties"],
                     order=w_data["order"],
