@@ -1,68 +1,29 @@
 import json
 import logging
-import queue
-import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from django.conf import settings
-from google import genai
+from django.db import connection
 
 from sheets_reports.utils.generate_widget_ia import (
     DEFAULT_MODEL,
     _build_source_context,
+    gemini_client,
     generate_widget_code,
     generate_widget_summary,
 )
 
 logger = logging.getLogger(__name__)
 
-# Cada cuántos segundos, como máximo, el stream SSE de generate_board_from_prompt manda un
-# evento mientras espera una llamada a Gemini -- para que un proxy/gateway de por medio (fuera
-# de este repo) no corte la conexión por inactividad si esa llamada tarda más que su timeout de
-# lectura ociosa (ver _run_with_heartbeat).
-HEARTBEAT_INTERVAL_SECONDS = 15
-
-
-def _run_with_heartbeat(fn, *args, **kwargs):
-    """
-    Ejecuta `fn(*args, **kwargs)` en un hilo aparte, yielding un evento heartbeat cada
-    HEARTBEAT_INTERVAL_SECONDS mientras se espera. Un tablero completo hace varias llamadas
-    bloqueantes a Gemini seguidas (una por el plan, una por cada widget); sin esto, el stream
-    puede quedar minutos sin mandar ni un byte, y algún proxy/gateway intermedio lo corta por
-    timeout de conexión ociosa -- eso es lo que el navegador reporta como "Network Error".
-
-    Se usa con `yield from` para poder emitir los heartbeats hacia el cliente Y quedarse con
-    el resultado final de `fn` (vía el valor de retorno del generador, StopIteration.value):
-
-        plan = yield from _run_with_heartbeat(generate_board_plan, user_prompt, dashboard)
-
-    Una excepción de `fn` se re-lanza acá (no queda atrapada en el hilo en el que corrió), para
-    que el try/except de generate_board_from_prompt la siga manejando exactamente igual que
-    antes de este cambio.
-    """
-    result_queue = queue.Queue()
-
-    def _target():
-        try:
-            result_queue.put(("result", fn(*args, **kwargs)))
-        except Exception as e:
-            result_queue.put(("error", e))
-
-    threading.Thread(target=_target, daemon=True).start()
-
-    while True:
-        try:
-            kind, value = result_queue.get(timeout=HEARTBEAT_INTERVAL_SECONDS)
-        except queue.Empty:
-            yield {"event": "heartbeat"}
-            continue
-        if kind == "error":
-            raise value
-        return value
+# Cuántos widgets se generan a la vez contra Gemini. Secuencialmente, un tablero de 8 widgets
+# son ~17 llamadas en fila (varios minutos); en paralelo tarda más o menos lo que el widget más
+# lento. Se mantiene bajo para no chocar con el rate limit de la API.
+WIDGET_GENERATION_WORKERS = 4
 
 
 def _generate_widget_code_and_summary(prompt, dashboard, chart_type):
     """
-    Genera el código del widget y, en la misma llamada (mismo hilo, un solo heartbeat), su
+    Genera el código del widget y, en la misma llamada (mismo hilo), su
     resumen no técnico -- así el primer GET a /api/dashboard/<id>/widgets/ que hace el
     navegador después de crear el tablero ya lo trae poblado, en vez de depender del backfill
     perezoso de widget_dispatcher._spawn_summary_backfill (que recién se dispara en el PRIMER
@@ -74,14 +35,20 @@ def _generate_widget_code_and_summary(prompt, dashboard, chart_type):
     best-effort que _spawn_summary_backfill (logueado, no propagado): el tablero sigue
     creándose igual, solo que ese widget puntual queda sin resumen (se genera más adelante,
     la primera vez que alguien le pida datos reales, como cualquier otro widget).
+
+    Corre en un hilo del ThreadPoolExecutor de generate_board_from_prompt, así que cierra al
+    final la conexión a la BD que Django le haya abierto a ese hilo.
     """
-    code = generate_widget_code(prompt=prompt, dashboard=dashboard, chart_type=chart_type)
     try:
-        summary = generate_widget_summary(code, chart_type, prompt)
-    except Exception:
-        logger.exception("No se pudo generar el resumen de un widget al crear el tablero")
-        summary = ""
-    return code, summary
+        code = generate_widget_code(prompt=prompt, dashboard=dashboard, chart_type=chart_type)
+        try:
+            summary = generate_widget_summary(code, chart_type, prompt)
+        except Exception:
+            logger.exception("No se pudo generar el resumen de un widget al crear el tablero")
+            summary = ""
+        return code, summary
+    finally:
+        connection.close()
 
 
 BOARD_PLANNER_SYSTEM_INSTRUCTION = """\
@@ -187,7 +154,7 @@ def generate_board_plan(user_prompt: str, dashboard) -> dict:
     if not api_key:
         raise ValueError("GEMINI_API_KEY no está configurado en .env")
 
-    client = genai.Client(api_key=api_key)
+    client = gemini_client(api_key)
     response = client.models.generate_content(
         model=DEFAULT_MODEL,
         contents=full_prompt,
@@ -212,10 +179,10 @@ def generate_board_from_prompt(user_prompt: str, data_source, user):
     """
     Orquestador completo: crea un Dashboard apuntando a `data_source` (una instancia de
     sheets_reports.models.DataSource, ya creada por el llamador), pide a Gemini el plan,
-    genera el código de cada widget y persiste todo. Es un generador que va emitiendo dicts
-    de progreso por cada etapa (pensado para alimentar un StreamingHttpResponse en
-    views_dashboard.generate_dashboard_from_prompt); el último dict tiene
-    event="done" y trae el Dashboard ya armado bajo la clave "dashboard".
+    genera el código de cada widget (en paralelo) y persiste todo. Es un generador que va
+    emitiendo dicts de progreso por cada etapa (lo consume el job en segundo plano de
+    views_dashboard.generate_dashboard_from_prompt); el último dict tiene event="done" y trae
+    el Dashboard ya armado bajo la clave "dashboard".
     Si algo falla, emite event="error" y no deja registros huérfanos (borra el Dashboard).
     """
     from django.db import transaction
@@ -229,26 +196,44 @@ def generate_board_from_prompt(user_prompt: str, data_source, user):
 
     try:
         yield {"event": "planning"}
-        plan = yield from _run_with_heartbeat(generate_board_plan, user_prompt, dashboard)
+        plan = generate_board_plan(user_prompt, dashboard)
 
         dashboard.title = plan["title"]
         dashboard.save()
 
-        total = len(plan["widgets"])
+        widgets = plan["widgets"]
+        total = len(widgets)
         yield {"event": "plan", "title": plan["title"], "total": total}
 
-        with transaction.atomic():
-            for index, w_data in enumerate(plan["widgets"], start=1):
-                if w_data["chart_type"] == "filter":
-                    w_data["properties"].pop("height", None)
-                yield {"event": "widget_start", "index": index, "total": total, "title": w_data["title"]}
-                code, summary = yield from _run_with_heartbeat(
+        results = [None] * total
+        with ThreadPoolExecutor(max_workers=WIDGET_GENERATION_WORKERS) as executor:
+            futures = {
+                executor.submit(
                     _generate_widget_code_and_summary,
                     prompt=w_data["prompt"],
                     dashboard=dashboard,
                     chart_type=w_data["chart_type"],
-                )
-                widget = WidgetInstance.objects.create(
+                ): i
+                for i, w_data in enumerate(widgets)
+            }
+            for done_count, future in enumerate(as_completed(futures), start=1):
+                i = futures[future]
+                try:
+                    results[i] = future.result()
+                except Exception:
+                    # Si un widget falla el tablero entero se descarta: no tiene sentido seguir
+                    # gastando llamadas a Gemini en los que todavía no arrancaron.
+                    for f in futures:
+                        f.cancel()
+                    raise
+                yield {"event": "widget_done", "done": done_count, "total": total, "title": widgets[i]["title"]}
+
+        # Todo lo lento (Gemini) ya pasó: la transacción solo cubre los INSERTs.
+        with transaction.atomic():
+            for w_data, (code, summary) in zip(widgets, results):
+                if w_data["chart_type"] == "filter":
+                    w_data["properties"].pop("height", None)
+                WidgetInstance.objects.create(
                     dashboard=dashboard,
                     title=w_data["title"],
                     chart_type=w_data["chart_type"],
@@ -258,8 +243,8 @@ def generate_board_from_prompt(user_prompt: str, data_source, user):
                     properties=w_data["properties"],
                     order=w_data["order"],
                 )
-                yield {"event": "widget_done", "index": index, "total": total, "widget_id": widget.id}
     except Exception as e:
+        logger.exception("Falló la generación de un tablero con IA")
         dashboard.delete()
         yield {"event": "error", "message": str(e)}
         return

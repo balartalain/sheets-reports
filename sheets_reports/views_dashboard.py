@@ -1,8 +1,13 @@
 import json
+import logging
+import threading
+import uuid
 from urllib.parse import urlparse
 
 from django.contrib.auth import get_user_model
-from django.http import JsonResponse, StreamingHttpResponse
+from django.core.cache import cache
+from django.db import connection
+from django.http import JsonResponse
 from django.utils.timesince import timesince
 from django.utils.timezone import now
 from django.views.decorators.csrf import csrf_exempt
@@ -10,6 +15,8 @@ from django.views.decorators.http import require_http_methods
 
 from sheets_reports.models import Dashboard, DataSource
 from sheets_reports.utils.generate_dashboard_ia import generate_board_from_prompt
+
+logger = logging.getLogger(__name__)
 
 
 def _get_user(request):
@@ -175,12 +182,33 @@ def _get_request_data(request):
     return request.GET
 
 
-def _sse_event(event: dict) -> str:
-    """Formatea un dict de progreso como un evento Server-Sent Events (una línea `event:`
-    con el tipo, una línea `data:` con el resto como JSON, línea en blanco de separador)."""
-    event = dict(event)
-    event_type = event.pop("event")
-    return f"event: {event_type}\ndata: {json.dumps(event)}\n\n"
+# Estado de cada generación de tablero en curso, en el cache (DatabaseCache, compartido entre
+# procesos: el hilo que genera y el request que consulta el estado pueden caer en workers
+# distintos). Una hora sobra para que el navegador lea el resultado final.
+BOARD_JOB_CACHE_TIMEOUT = 3600
+
+
+def _board_job_key(job_id):
+    return f"board_gen:{job_id}"
+
+
+def _run_board_job(job_id, prompt, data_source, user):
+    """
+    Cuerpo del hilo en segundo plano de generate_dashboard_from_prompt: consume el generador
+    de progreso y va guardando el último evento en el cache para que lo lea
+    generate_dashboard_status.
+    """
+    key = _board_job_key(job_id)
+    try:
+        for event in generate_board_from_prompt(prompt, data_source, user):
+            if event["event"] == "done":
+                event = {"event": "done", "dashboard": _serialize(event["dashboard"])}
+            cache.set(key, event, BOARD_JOB_CACHE_TIMEOUT)
+    except Exception as e:
+        logger.exception("Falló el job de generación de tablero %s", job_id)
+        cache.set(key, {"event": "error", "message": str(e)}, BOARD_JOB_CACHE_TIMEOUT)
+    finally:
+        connection.close()
 
 
 @csrf_exempt
@@ -188,21 +216,15 @@ def _sse_event(event: dict) -> str:
 def generate_dashboard_from_prompt(request):
     """
     POST /api/dashboards/generate-from-prompt/
-    Crea un tablero completo desde una descripción en lenguaje natural, transmitiendo el
-    progreso en vivo como Server-Sent Events (text/event-stream) mientras Gemini arma el plan
-    y genera el código de cada widget — esto puede tardar bastante con varios widgets, así que
-    el cliente ve avance real en vez de esperar a ciegas.
+    Crea un tablero completo desde una descripción en lenguaje natural. La generación (plan +
+    código de cada widget con Gemini) puede tardar minutos, más de lo que aguanta una sola
+    petición HTTP detrás de Apache/proxy -- por eso corre en un hilo en segundo plano y esto
+    responde enseguida con 202 { "job_id": "..." }; el navegador consulta el avance en
+    GET /api/dashboards/generate-from-prompt/<job_id>/ (generate_dashboard_status).
     Body: { "prompt": "...", "source_url": "..." } o { "prompt": "...", "data_source_id": N }
     (data_source_id apunta a una DataSource ya creada, ej. una conexión Postgres dada de alta
     vía Django admin; source_url crea una DataSource "google_sheets" nueva al vuelo, por
     compatibilidad con el formulario actual).
-    Eventos emitidos (uno por línea `event: <tipo>` + `data: <json>`):
-      planning                          -> arrancó el armado del plan del tablero
-      plan       {title, total}         -> plan listo, se van a generar `total` widgets
-      widget_start {index, total, title} -> arrancó la generación del widget `index`
-      widget_done  {index, total, widget_id} -> terminó ese widget
-      done       {dashboard: {...}}     -> tablero completo, mismo shape que POST /api/dashboards/
-      error      {message}              -> algo falló; no queda ningún registro huérfano
     """
     try:
         data = _get_request_data(request)
@@ -222,16 +244,29 @@ def generate_dashboard_from_prompt(request):
     if error:
         return error
 
-    def event_stream():
-        try:
-            for event in generate_board_from_prompt(prompt, data_source, user):
-                if event["event"] == "done":
-                    event = {"event": "done", "dashboard": _serialize(event["dashboard"])}
-                yield _sse_event(event)
-        except Exception as e:
-            yield _sse_event({"event": "error", "message": str(e)})
+    job_id = uuid.uuid4().hex
+    cache.set(_board_job_key(job_id), {"event": "queued"}, BOARD_JOB_CACHE_TIMEOUT)
+    threading.Thread(
+        target=_run_board_job,
+        args=(job_id, prompt, data_source, user),
+        daemon=True,
+    ).start()
+    return JsonResponse({"job_id": job_id}, status=202)
 
-    response = StreamingHttpResponse(event_stream(), content_type="text/event-stream")
-    response["Cache-Control"] = "no-cache"
-    response["X-Accel-Buffering"] = "no"
-    return response
+
+@require_http_methods(["GET"])
+def generate_dashboard_status(request, job_id):
+    """
+    GET /api/dashboards/generate-from-prompt/<job_id>/
+    Último evento de progreso del job lanzado por generate_dashboard_from_prompt:
+      queued                            -> todavía no arrancó
+      planning                          -> armando el plan del tablero
+      plan        {title, total}        -> plan listo, se van a generar `total` widgets
+      widget_done {done, total, title}  -> `done` de `total` widgets ya generados
+      done        {dashboard: {...}}    -> tablero completo, mismo shape que POST /api/dashboards/
+      error       {message}             -> algo falló; no queda ningún registro huérfano
+    """
+    state = cache.get(_board_job_key(job_id))
+    if state is None:
+        return JsonResponse({"error": "Generación no encontrada o expirada"}, status=404)
+    return JsonResponse(state)

@@ -3,6 +3,7 @@ import logging
 
 from django.conf import settings
 from google import genai
+from google.genai import types
 
 from sheets_reports.utils.cache import get_cached_tables
 from sheets_reports.utils.registry import get_available_utils
@@ -10,6 +11,20 @@ from sheets_reports.utils.registry import get_available_utils
 logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL = "gemini-2.5-flash"
+
+# Tope por llamada a Gemini: sin esto el SDK espera indefinidamente, y una llamada colgada deja
+# colgada también la generación de tablero completa (ver generate_dashboard_ia).
+GEMINI_TIMEOUT_MS = 120_000
+
+
+def gemini_client(api_key: str) -> genai.Client:
+    return genai.Client(
+        api_key=api_key,
+        http_options=types.HttpOptions(
+            timeout=GEMINI_TIMEOUT_MS,
+            retry_options=types.HttpRetryOptions(attempts=2),
+        ),
+    )
 
 SYSTEM_INSTRUCTION_TEMPLATE = """\
 Eres un generador de código Python para widgets de un dashboard interno de reportes.
@@ -338,7 +353,7 @@ def _call_gemini(full_prompt: str, system_instruction: str) -> str:
     if not api_key:
         raise ValueError("GEMINI_API_KEY no está configurado en .env")
 
-    client = genai.Client(api_key=api_key)
+    client = gemini_client(api_key)
     response = client.models.generate_content(
         model=DEFAULT_MODEL,
         contents=full_prompt,
@@ -408,7 +423,7 @@ def generate_widget_summary(code: str, chart_type: str = "", prompt: str = "") -
     if not api_key:
         raise ValueError("GEMINI_API_KEY no está configurado en .env")
 
-    client = genai.Client(api_key=api_key)
+    client = gemini_client(api_key)
     response = client.models.generate_content(
         model=DEFAULT_MODEL,
         contents=full_prompt,
@@ -454,7 +469,7 @@ def generate_custom_util(prompt: str, dashboard, existing_util: dict | None = No
     if not api_key:
         raise ValueError("GEMINI_API_KEY no está configurado en .env")
 
-    client = genai.Client(api_key=api_key)
+    client = gemini_client(api_key)
     response = client.models.generate_content(
         model=DEFAULT_MODEL,
         contents=full_prompt,
@@ -521,7 +536,7 @@ def generate_calculated_column(prompt: str, dashboard, table_name: str, existing
     if not api_key:
         raise ValueError("GEMINI_API_KEY no está configurado en .env")
 
-    client = genai.Client(api_key=api_key)
+    client = gemini_client(api_key)
     response = client.models.generate_content(
         model=DEFAULT_MODEL,
         contents=full_prompt,
