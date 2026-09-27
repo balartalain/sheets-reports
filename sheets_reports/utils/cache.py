@@ -5,7 +5,7 @@ from django.core.cache import cache
 
 from sheets_reports.connectors.base import DataFrameBackedConnector
 
-CACHE_TIMEOUT = 300  # 5 minutos
+CACHE_TIMEOUT = 86400  # 24 horas
 LOCK_TIMEOUT = 30  # segundos máximo que puede tardar un fetch a Google Sheets (protegido por rate limiter global)
 LOCK_POLL_INTERVAL = 0.2
 

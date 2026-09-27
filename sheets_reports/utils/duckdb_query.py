@@ -94,7 +94,7 @@ def invalidate_database(data_source) -> None:
     Borra el archivo DuckDB cacheado de este origen (si existe), sin reconstruirlo. La
     próxima llamada a get_query_connection/get_cached_df lo reconstruye perezosamente --
     mismo mecanismo que ya existe para cuando expira el TTL normal. Se usa al crear/editar/
-    borrar una columna calculada, para que el cambio no espere hasta 5 minutos en aparecer,
+    borrar una columna calculada, para que el cambio no espere hasta 24 horas en aparecer,
     sin bloquear el request de guardado con una reconstrucción completa (que implica volver
     a leer la hoja de cálculo).
     """
